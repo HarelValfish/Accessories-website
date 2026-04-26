@@ -70,7 +70,7 @@
           <div class="image-option">
             <p class="image-option-label">Option B — Auto-fetch from web</p>
             <button type="button" class="btn-primary" id="fetchImageBtn" style="width:100%">🔍 Find image automatically</button>
-            <p class="field-hint">Searches the web using the product name &amp; description. Requires name to be filled in first.</p>
+            <p class="field-hint">Searches the web using the product name &amp; description.</p>
           </div>
         </div>
       </div>
@@ -84,6 +84,58 @@
              onerror="this.style.display='none'" />
       </div>
 
+      <!-- Color options -->
+      <div class="form-group">
+        <div class="color-toggle-row">
+          <label class="field-label" style="margin:0">Color Options</label>
+          <label class="toggle-switch">
+            <input type="checkbox" id="colorsEnabledCheck"
+                   {% if item and item.get('colors_enabled') %}checked{% endif %} />
+            <span class="toggle-slider"></span>
+          </label>
+          <span class="toggle-label" id="toggleLabel">
+            {{ 'Enabled' if item and item.get('colors_enabled') else 'Disabled' }}
+          </span>
+        </div>
+        <input type="hidden" name="colors_enabled" id="colorsEnabledInput"
+               value="{{ '1' if item and item.get('colors_enabled') else '0' }}" />
+        <input type="hidden" name="colors_json" id="colorsJsonInput"
+               value="{{ (item.get('colors', []) if item else [])|tojson|forceescape }}" />
+
+        <div id="colorPicker" style="{% if not item or not item.get('colors_enabled') %}display:none{% endif %}; margin-top:1rem;">
+          <p class="field-hint" style="margin-bottom:0.75rem">Click swatches to toggle available colors for this item.</p>
+          <div class="color-palette">
+            {% set palette = [
+              ('Black',   '#1c1c1e'),
+              ('White',   '#f5f5f7'),
+              ('Silver',  '#b0b8c1'),
+              ('Gray',    '#6e6e73'),
+              ('Blue',    '#2563eb'),
+              ('Navy',    '#1e3a5f'),
+              ('Red',     '#dc2626'),
+              ('Green',   '#16a34a'),
+              ('Pink',    '#ec4899'),
+              ('Purple',  '#7c3aed'),
+              ('Orange',  '#ea580c'),
+              ('Yellow',  '#ca8a04'),
+              ('Gold',    '#b8960c'),
+              ('Brown',   '#78350f')
+            ] %}
+            {% for cname, chex in palette %}
+            <button type="button"
+                    class="color-swatch-btn"
+                    data-name="{{ cname }}"
+                    data-hex="{{ chex }}"
+                    style="background:{{ chex }};"
+                    title="{{ cname }}">
+              <span class="swatch-check">✓</span>
+            </button>
+            {% endfor %}
+          </div>
+          <div id="selectedColorsList" class="selected-colors-list"></div>
+        </div>
+      </div>
+
       <div class="form-actions">
         <button type="submit" class="btn-primary">{{ action }} Item</button>
         <a href="{{ url_for('admin.dashboard') }}" class="btn-cancel">Cancel</a>
@@ -95,6 +147,7 @@
 
 {% block extra_js %}
 <script>
+  // ── Image preview ─────────────────────────────────────────────────
   const imageUrlInput = document.getElementById('image_url');
   const imagePreview  = document.getElementById('imagePreview');
   const previewWrap   = document.getElementById('previewWrap');
@@ -109,45 +162,79 @@
     }
   }
 
-  // Live preview when URL is typed
   imageUrlInput.addEventListener('input', () => showPreview(imageUrlInput.value.trim()));
 
-  // Clear button
   document.getElementById('clearImageBtn').addEventListener('click', () => {
     imageUrlInput.value = '';
     previewWrap.style.display = 'none';
   });
 
-  // Auto-fetch button
   document.getElementById('fetchImageBtn').addEventListener('click', async () => {
     const name = document.getElementById('name').value.trim();
     const desc = document.getElementById('description').value.trim();
-
-    if (!name) {
-      alert('Please enter a product name first.');
-      return;
-    }
-
+    if (!name) { alert('Please enter a product name first.'); return; }
     const btn = document.getElementById('fetchImageBtn');
     btn.textContent = '⏳ Searching…';
     btn.disabled = true;
-
     try {
       const res  = await fetch(`/api/fetch-image?name=${encodeURIComponent(name)}&description=${encodeURIComponent(desc)}`);
       const data = await res.json();
+      if (data.image_url) { imageUrlInput.value = data.image_url; showPreview(data.image_url); }
+      else alert('No image found. Try a different name or paste a URL manually.');
+    } catch { alert('Could not fetch image. Try again or paste a URL manually.'); }
+    finally { btn.textContent = '🔍 Find image automatically'; btn.disabled = false; }
+  });
 
-      if (data.image_url) {
-        imageUrlInput.value = data.image_url;
-        showPreview(data.image_url);
-      } else {
-        alert('No image found. Try a different name or paste a URL manually.');
-      }
-    } catch (err) {
-      alert('Could not fetch image. Try again or paste a URL manually.');
-    } finally {
-      btn.textContent = '🔍 Find image automatically';
-      btn.disabled = false;
+  // ── Color picker ─────────────────────────────────────────────────
+  const colorsEnabledCheck = document.getElementById('colorsEnabledCheck');
+  const colorsEnabledInput = document.getElementById('colorsEnabledInput');
+  const colorsJsonInput    = document.getElementById('colorsJsonInput');
+  const colorPicker        = document.getElementById('colorPicker');
+  const toggleLabel        = document.getElementById('toggleLabel');
+  const swatches           = document.querySelectorAll('.color-swatch-btn');
+
+  // Load existing colors from hidden input
+  let selectedColors = JSON.parse(colorsJsonInput.value || '[]');
+
+  function renderSelectedList() {
+    const list = document.getElementById('selectedColorsList');
+    if (selectedColors.length === 0) {
+      list.innerHTML = '<p class="field-hint">No colors selected yet.</p>';
+    } else {
+      list.innerHTML = '<p class="field-hint" style="margin-bottom:0.5rem">Selected: ' +
+        selectedColors.map(c =>
+          `<span class="selected-color-chip" style="background:${c.hex}">${c.name}</span>`
+        ).join('') + '</p>';
     }
+  }
+
+  function syncSwatches() {
+    swatches.forEach(btn => {
+      const isSelected = selectedColors.some(c => c.hex === btn.dataset.hex);
+      btn.classList.toggle('swatch-active', isSelected);
+    });
+    colorsJsonInput.value = JSON.stringify(selectedColors);
+    renderSelectedList();
+  }
+
+  // Mark already-selected swatches on page load
+  syncSwatches();
+
+  swatches.forEach(btn => {
+    btn.addEventListener('click', () => {
+      const color = { name: btn.dataset.name, hex: btn.dataset.hex };
+      const idx = selectedColors.findIndex(c => c.hex === color.hex);
+      if (idx > -1) selectedColors.splice(idx, 1);
+      else selectedColors.push(color);
+      syncSwatches();
+    });
+  });
+
+  colorsEnabledCheck.addEventListener('change', () => {
+    const on = colorsEnabledCheck.checked;
+    colorsEnabledInput.value  = on ? '1' : '0';
+    colorPicker.style.display = on ? 'block' : 'none';
+    toggleLabel.textContent   = on ? 'Enabled' : 'Disabled';
   });
 </script>
 {% endblock %}

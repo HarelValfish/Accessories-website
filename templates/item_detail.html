@@ -47,7 +47,35 @@
       <button class="btn-primary btn-buy" onclick="alert('Cart feature coming soon!')">
         Add to Cart
       </button>
+
+      {% if item.get('colors_enabled') and item.get('colors') %}
+      <div class="detail-colors">
+        <p class="field-label" style="margin-bottom:0.6rem">Available Colors</p>
+        <div class="color-swatches-display" id="colorSwatches">
+          {% for color in item['colors'] %}
+          <button type="button"
+                  class="color-swatch-display"
+                  style="background:{{ color['hex'] }}"
+                  title="{{ color['name'] }}"
+                  onclick="selectColor(this, '{{ color['name'] }}')">
+            <span class="swatch-check">✓</span>
+          </button>
+          {% endfor %}
+        </div>
+        <p class="selected-color-label" id="selectedColorLabel">Select a color</p>
+      </div>
+      {% endif %}
     </div>
   </div>
 </div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+  function selectColor(btn, name) {
+    document.querySelectorAll('.color-swatch-display').forEach(s => s.classList.remove('swatch-active'));
+    btn.classList.add('swatch-active');
+    document.getElementById('selectedColorLabel').textContent = name;
+  }
+</script>
 {% endblock %}

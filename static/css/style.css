@@ -208,7 +208,7 @@ img { max-width: 100%; display: block; }
 .product-card:hover { border-color: var(--accent); transform: translateY(-3px); }
 
 .card-image-link { display: block; }
-.card-image-wrap { position: relative; overflow: hidden; aspect-ratio: 16/10; }
+.card-image-wrap { position: relative; overflow: hidden; aspect-ratio: 16/9; }
 .card-image {
   width: 100%; height: 100%;
   object-fit: cover;
@@ -458,7 +458,16 @@ body.login-page {
 .row-out td { background: rgba(239,68,68,0.03); }
 .table-thumb { width: 64px; height: 48px; object-fit: cover; border-radius: 6px; border: 1px solid var(--border); }
 .price-cell { font-family: var(--font-head); font-weight: 700; color: var(--accent-2); }
-.actions-cell { display: flex; gap: 0.4rem; align-items: center; }
+.actions-cell { display: flex; gap: 0.4rem; align-items: center; white-space: nowrap; }
+.actions-cell .btn-edit,
+.actions-cell .btn-delete {
+  width: 72px;
+  height: 32px;
+  text-align: center;
+  padding: 0;
+  line-height: 32px;
+  box-sizing: border-box;
+}
 .text-muted { color: var(--text-muted); }
 
 /* ── FORM CARD ──────────────────────────────────────────────────────── */
@@ -471,6 +480,124 @@ body.login-page {
   flex-direction: column;
   gap: 1.25rem;
   max-width: 700px;
+}
+
+/* ── COLORS ─────────────────────────────────────────────────────────── */
+
+/* Admin form — toggle switch */
+.color-toggle-row {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin-bottom: 0.25rem;
+}
+.toggle-switch {
+  position: relative;
+  width: 42px;
+  height: 24px;
+  flex-shrink: 0;
+}
+.toggle-switch input { opacity: 0; width: 0; height: 0; }
+.toggle-slider {
+  position: absolute;
+  inset: 0;
+  background: var(--bg-3);
+  border: 1px solid var(--border);
+  border-radius: 24px;
+  cursor: pointer;
+  transition: background 0.2s ease, border-color 0.2s ease;
+}
+.toggle-slider::before {
+  content: '';
+  position: absolute;
+  width: 16px; height: 16px;
+  left: 3px; top: 3px;
+  background: var(--text-muted);
+  border-radius: 50%;
+  transition: transform 0.2s ease, background 0.2s ease;
+}
+.toggle-switch input:checked + .toggle-slider { background: var(--accent); border-color: var(--accent); }
+.toggle-switch input:checked + .toggle-slider::before { transform: translateX(18px); background: #fff; }
+.toggle-label { font-size: 0.82rem; color: var(--text-muted); }
+
+/* Admin form — color palette grid */
+.color-palette {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+.color-swatch-btn {
+  width: 36px; height: 36px;
+  border-radius: 50%;
+  border: 2px solid transparent;
+  cursor: pointer;
+  position: relative;
+  transition: transform 0.15s ease, border-color 0.15s ease;
+  display: flex; align-items: center; justify-content: center;
+}
+.color-swatch-btn:hover { transform: scale(1.15); }
+.color-swatch-btn.swatch-active { border-color: var(--accent); transform: scale(1.1); }
+.color-swatch-btn .swatch-check {
+  color: #fff;
+  font-size: 0.75rem;
+  font-weight: 700;
+  opacity: 0;
+  text-shadow: 0 1px 2px rgba(0,0,0,0.6);
+  transition: opacity 0.15s ease;
+}
+.color-swatch-btn.swatch-active .swatch-check { opacity: 1; }
+
+/* Admin form — selected chips */
+.selected-colors-list { margin-top: 0.6rem; }
+.selected-color-chip {
+  display: inline-block;
+  padding: 0.2rem 0.6rem;
+  border-radius: 100px;
+  font-size: 0.7rem;
+  font-weight: 600;
+  color: #fff;
+  margin: 0.15rem 0.2rem;
+  text-shadow: 0 1px 2px rgba(0,0,0,0.5);
+}
+
+/* Shop card — color dots */
+.card-color-dots { display: flex; align-items: center; gap: 3px; }
+.card-color-dot {
+  width: 12px; height: 12px;
+  border-radius: 50%;
+  border: 1.5px solid rgba(255,255,255,0.15);
+  display: inline-block;
+}
+.card-color-more { font-size: 0.65rem; color: var(--text-muted); }
+
+/* Detail page — color swatches */
+.detail-colors { margin-top: 1rem; }
+.color-swatches-display { display: flex; flex-wrap: wrap; gap: 0.5rem; margin-bottom: 0.5rem; }
+.color-swatch-display {
+  width: 32px; height: 32px;
+  border-radius: 50%;
+  border: 2px solid transparent;
+  cursor: pointer;
+  position: relative;
+  transition: transform 0.15s ease, border-color 0.15s ease;
+  display: flex; align-items: center; justify-content: center;
+}
+.color-swatch-display:hover { transform: scale(1.15); }
+.color-swatch-display.swatch-active { border-color: var(--accent); transform: scale(1.12); }
+.color-swatch-display .swatch-check {
+  color: #fff;
+  font-size: 0.7rem;
+  font-weight: 700;
+  opacity: 0;
+  text-shadow: 0 1px 2px rgba(0,0,0,0.6);
+  transition: opacity 0.15s ease;
+}
+.color-swatch-display.swatch-active .swatch-check { opacity: 1; }
+.selected-color-label {
+  font-size: 0.82rem;
+  color: var(--text-muted);
+  min-height: 1.2em;
+  transition: color 0.2s ease;
 }
 
 /* ── IMAGE OPTIONS ──────────────────────────────────────────────────── */
@@ -623,7 +750,7 @@ body.login-page {
 .nav-link:hover::after { width: 60%; left: 20%; }
 
 /* ── Button ripple ──────────────────────────────────────────────────── */
-.btn-primary, .btn-search, .btn-edit, .btn-delete { position: relative; overflow: hidden; }
+.btn-primary, .btn-search { position: relative; overflow: hidden; }
 .ripple {
   position: absolute;
   border-radius: 50%;
@@ -694,7 +821,7 @@ body.login-page {
 .admin-table td:nth-child(7) { width: 160px; }  /* Actions */
 
 /* Keep actions cell from wrapping */
-.actions-cell { white-space: nowrap; display: flex; gap: 0.35rem; align-items: center; flex-wrap: nowrap; }
+.admin-table td:nth-child(4) { white-space: nowrap; }
 
 /* ── Shimmer on card images while loading ───────────────────────────── */
 .card-image-wrap {

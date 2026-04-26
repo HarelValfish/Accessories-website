@@ -81,27 +81,25 @@ def get_all_categories() -> list:
 # ══════════════════════════════════════════════════════════════════════════════
 
 def create_item(name: str, description: str, category: str,
-                price: float, stock: int, image_url: str) -> str:
-    """
-    Insert a new item document into MongoDB.
-    Auto-fetches an image if image_url is empty.
-    Returns the inserted document's ID as a string.
-    """
+                price: float, stock: int, image_url: str,
+                colors_enabled: bool = False, colors: list = None) -> str:
     if not image_url:
-        image_url = fetch_image(name, description)  # auto-fetch image from Unsplash
+        image_url = fetch_image(name, description)
 
     document = {
-        "name":        name,
-        "description": description,
-        "category":    category,
-        "price":       float(price),
-        "stock":       int(stock),
-        "image_url":   image_url,
-        "created_at":  datetime.utcnow(),  # timestamp for record keeping
+        "name":           name,
+        "description":    description,
+        "category":       category,
+        "price":          float(price),
+        "stock":          int(stock),
+        "image_url":      image_url,
+        "colors_enabled": colors_enabled,
+        "colors":         colors or [],
+        "created_at":     datetime.utcnow(),
     }
 
     result = items_collection.insert_one(document)
-    return str(result.inserted_id)  # return the new _id as a string
+    return str(result.inserted_id)
 
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -109,30 +107,28 @@ def create_item(name: str, description: str, category: str,
 # ══════════════════════════════════════════════════════════════════════════════
 
 def update_item(item_id: str, name: str, description: str, category: str,
-                price: float, stock: int, image_url: str) -> bool:
-    """
-    Update an existing item by ID.
-    Auto-fetches image if image_url was cleared.
-    Returns True if a document was modified, False otherwise.
-    """
+                price: float, stock: int, image_url: str,
+                colors_enabled: bool = False, colors: list = None) -> bool:
     if not image_url:
-        image_url = fetch_image(name, description)  # re-fetch if URL was cleared
+        image_url = fetch_image(name, description)
 
     updates = {
-        "name":        name,
-        "description": description,
-        "category":    category,
-        "price":       float(price),
-        "stock":       int(stock),
-        "image_url":   image_url,
-        "updated_at":  datetime.utcnow(),  # track when it was last changed
+        "name":           name,
+        "description":    description,
+        "category":       category,
+        "price":          float(price),
+        "stock":          int(stock),
+        "image_url":      image_url,
+        "colors_enabled": colors_enabled,
+        "colors":         colors or [],
+        "updated_at":     datetime.utcnow(),
     }
 
     result = items_collection.update_one(
-        {"_id": ObjectId(item_id)},  # find document by ID
-        {"$set": updates}            # apply only the changed fields
+        {"_id": ObjectId(item_id)},
+        {"$set": updates}
     )
-    return result.modified_count > 0  # True if something actually changed
+    return result.modified_count > 0
 
 
 # ══════════════════════════════════════════════════════════════════════════════

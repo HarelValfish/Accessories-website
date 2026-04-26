@@ -16,9 +16,10 @@ from flask import (
     Blueprint, render_template, request,
     redirect, url_for, session, jsonify
 )
+import json
 
-from auth   import login_required, check_password   # auth helpers
-from models import (                                 # data-layer functions
+from auth   import login_required, check_password
+from models import (
     get_all_items, get_item_by_id, get_all_categories,
     create_item, update_item, delete_item, fetch_image
 )
@@ -130,15 +131,23 @@ def new_item():
     POST → read form data, create item in DB, redirect to dashboard
     """
     if request.method == "POST":
-        create_item(                                           # delegate to models.py
-            name        = request.form.get("name", "").strip(),
-            description = request.form.get("description", "").strip(),
-            category    = request.form.get("category", "").strip(),
-            price       = float(request.form.get("price", 0)),
-            stock       = int(request.form.get("stock", 0)),
-            image_url   = request.form.get("image_url", "").strip(),
+        colors_enabled = request.form.get("colors_enabled") == "1"
+        try:
+            colors = json.loads(request.form.get("colors_json", "[]"))
+        except (json.JSONDecodeError, ValueError):
+            colors = []  # fallback to empty list if JSON is invalid
+
+        create_item(
+            name           = request.form.get("name", "").strip(),
+            description    = request.form.get("description", "").strip(),
+            category       = request.form.get("category", "").strip(),
+            price          = float(request.form.get("price", 0)),
+            stock          = int(request.form.get("stock", 0)),
+            image_url      = request.form.get("image_url", "").strip(),
+            colors_enabled = colors_enabled,
+            colors         = colors,
         )
-        return redirect(url_for("admin.dashboard"))  # back to dashboard after save
+        return redirect(url_for("admin.dashboard"))
 
     return render_template("admin_item_form.html", item=None, action="Create")
 
@@ -155,14 +164,22 @@ def edit_item(item_id):
         return "Item not found", 404
 
     if request.method == "POST":
-        update_item(                                           # delegate to models.py
-            item_id     = item_id,
-            name        = request.form.get("name", "").strip(),
-            description = request.form.get("description", "").strip(),
-            category    = request.form.get("category", "").strip(),
-            price       = float(request.form.get("price", 0)),
-            stock       = int(request.form.get("stock", 0)),
-            image_url   = request.form.get("image_url", "").strip(),
+        colors_enabled = request.form.get("colors_enabled") == "1"
+        try:
+            colors = json.loads(request.form.get("colors_json", "[]"))
+        except (json.JSONDecodeError, ValueError):
+            colors = []  # fallback to empty list if JSON is invalid
+
+        update_item(
+            item_id        = item_id,
+            name           = request.form.get("name", "").strip(),
+            description    = request.form.get("description", "").strip(),
+            category       = request.form.get("category", "").strip(),
+            price          = float(request.form.get("price", 0)),
+            stock          = int(request.form.get("stock", 0)),
+            image_url      = request.form.get("image_url", "").strip(),
+            colors_enabled = colors_enabled,
+            colors         = colors,
         )
         return redirect(url_for("admin.dashboard"))
 

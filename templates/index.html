@@ -58,13 +58,25 @@
         <p class="card-desc">{{ item['description'][:80] }}{% if item['description']|length > 80 %}…{% endif %}</p>
         <div class="card-footer">
           <span class="card-price">${{ "%.2f"|format(item['price']) }}</span>
-          {% if item.get('stock', 0) <= 5 and item.get('stock', 0) > 0 %}
-            <span class="stock-badge stock-low">Only {{ item['stock'] }} left</span>
-          {% elif item.get('stock', 0) == 0 %}
-            <span class="stock-badge stock-out">Out of stock</span>
-          {% else %}
-            <span class="stock-badge stock-ok">In stock</span>
-          {% endif %}
+          <div style="display:flex;align-items:center;gap:0.5rem;">
+            {% if item.get('colors_enabled') and item.get('colors') %}
+            <div class="card-color-dots">
+              {% for color in item['colors'][:5] %}
+              <span class="card-color-dot" style="background:{{ color['hex'] }}" title="{{ color['name'] }}"></span>
+              {% endfor %}
+              {% if item['colors']|length > 5 %}
+              <span class="card-color-more">+{{ item['colors']|length - 5 }}</span>
+              {% endif %}
+            </div>
+            {% endif %}
+            {% if item.get('stock', 0) <= 5 and item.get('stock', 0) > 0 %}
+              <span class="stock-badge stock-low">Only {{ item['stock'] }} left</span>
+            {% elif item.get('stock', 0) == 0 %}
+              <span class="stock-badge stock-out">Out of stock</span>
+            {% else %}
+              <span class="stock-badge stock-ok">In stock</span>
+            {% endif %}
+          </div>
         </div>
       </div>
     </article>
