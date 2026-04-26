@@ -1,0 +1,45 @@
+{% extends "base.html" %}
+{% block title %}All Orders — TechDen Admin{% endblock %}
+
+{% block content %}
+<div class="admin-page">
+  <div class="admin-header">
+    <div>
+      <h1 class="admin-title">All Orders</h1>
+      <p class="admin-sub">View all customer orders</p>
+    </div>
+    <a href="{{ url_for('admin.dashboard') }}" class="btn-edit">← Back to Dashboard</a>
+  </div>
+
+  <div class="table-card" data-animate>
+    <table class="admin-table">
+      <thead>
+        <tr>
+          <th>Order Number</th>
+          <th>Customer</th>
+          <th>Date</th>
+          <th>Items</th>
+          <th>Total</th>
+          <th>Status</th>
+          <th>Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for order in orders %}
+        <tr>
+          <td>{{ order.order_number }}</td>
+          <td>{{ order.user_email }}</td>
+          <td>{{ order.created_at.strftime('%b %d, %Y %I:%M %p') }}</td>
+          <td>{{ order['items']|length }}</td>
+          <td>${{ "%.2f"|format(order.total) }}</td>
+          <td><span class="status-badge status-{{ order.status }}">{{ order.status|capitalize }}</span></td>
+          <td class="actions-cell">
+            <a href="{{ url_for('user.order_detail', order_id=order._id) }}" class="btn-edit">View</a>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}
