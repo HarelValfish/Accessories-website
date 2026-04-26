@@ -13,9 +13,17 @@ This file does NOT define any routes itself — those all live in routes.py.
 
 import os
 from flask import Flask
+from flask_bcrypt import Bcrypt
+from flask_wtf.csrf import CSRFProtect
+from flask_mail import Mail
 
-from routes import public_bp, admin_bp, auth_bp, api_bp  # import all blueprints
-from errors import register_error_handlers                # global error pages
+from routes import public_bp, admin_bp, auth_bp, api_bp, user_bp  # import all blueprints
+from errors import register_error_handlers                        # global error pages
+
+# Initialize extensions (will be bound to app in create_app)
+bcrypt = Bcrypt()
+csrf = CSRFProtect()
+mail = Mail()
 
 
 def create_app() -> Flask:
@@ -33,6 +41,18 @@ def create_app() -> Flask:
     # IMPORTANT: Set SECRET_KEY in your .env file before deploying.
     app.secret_key = os.environ.get("SECRET_KEY", "techden-dev-secret-key")
 
+    # ── Initialize extensions ──────────────────────────────────────────────────
+    bcrypt.init_app(app)  # password hashing
+    csrf.init_app(app)    # CSRF protection for forms
+    mail.init_app(app)    # email sending (mock mode initially)
+
+    # ── Email configuration (mock mode initially) ──────────────────────────────
+    app.config["MAIL_SERVER"] = os.environ.get("MAIL_SERVER", "localhost")
+    app.config["MAIL_PORT"] = int(os.environ.get("MAIL_PORT", 25))
+    app.config["MAIL_USE_TLS"] = os.environ.get("MAIL_USE_TLS", "False") == "True"
+    app.config["MAIL_USERNAME"] = os.environ.get("MAIL_USERNAME")
+    app.config["MAIL_PASSWORD"] = os.environ.get("MAIL_PASSWORD")
+
     # ── Register Blueprints ────────────────────────────────────────────────────
     # Each blueprint groups a set of related routes together.
     # url_prefix is intentionally left off here because each blueprint already
@@ -41,6 +61,7 @@ def create_app() -> Flask:
     app.register_blueprint(auth_bp)    # auth: /admin/login, /admin/logout
     app.register_blueprint(admin_bp)   # admin panel: /admin, /admin/item/...
     app.register_blueprint(api_bp)     # JSON API: /api/fetch-image
+    app.register_blueprint(user_bp)    # user: /register, /login, /cart, /checkout, /account
 
     # ── Register error handlers ────────────────────────────────────────────────
     register_error_handlers(app)       # 404 and 500 pages from errors.py
