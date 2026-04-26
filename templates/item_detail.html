@@ -44,10 +44,6 @@
         </div>
       </div>
 
-      <button class="btn-primary btn-buy" onclick="alert('Cart feature coming soon!')">
-        Add to Cart
-      </button>
-
       {% if item.get('colors_enabled') and item.get('colors') %}
       <div class="detail-colors">
         <p class="field-label" style="margin-bottom:0.6rem">Available Colors</p>
@@ -55,6 +51,7 @@
           {% for color in item['colors'] %}
           <button type="button"
                   class="color-swatch-display"
+                  data-color="{{ color['name'] }}"
                   style="background:{{ color['hex'] }}"
                   title="{{ color['name'] }}"
                   onclick="selectColor(this, '{{ color['name'] }}')">
@@ -65,6 +62,10 @@
         <p class="selected-color-label" id="selectedColorLabel">Select a color</p>
       </div>
       {% endif %}
+
+      <button class="btn-primary btn-buy" id="addToCartBtn" {% if item.get('stock', 0) == 0 %}disabled{% endif %}>
+        {% if item.get('stock', 0) == 0 %}Out of Stock{% else %}Add to Cart{% endif %}
+      </button>
     </div>
   </div>
 </div>
@@ -72,10 +73,72 @@
 
 {% block extra_js %}
 <script>
+  let selectedColor = null;
+
   function selectColor(btn, name) {
     document.querySelectorAll('.color-swatch-display').forEach(s => s.classList.remove('swatch-active'));
     btn.classList.add('swatch-active');
     document.getElementById('selectedColorLabel').textContent = name;
+    selectedColor = name;
   }
+
+  // Add to Cart functionality
+  document.getElementById('addToCartBtn').addEventListener('click', async () => {
+    const btn = document.getElementById('addToCartBtn');
+    const itemId = '{{ item._id }}';
+    const hasColors = {{ 'true' if item.get('colors_enabled') and item.get('colors') else 'false' }};
+
+    // Check if color selection is required but not selected
+    if (hasColors && !selectedColor) {
+      alert('Please select a color first');
+      return;
+    }
+
+    const originalText = btn.textContent;
+    btn.textContent = '⏳ Adding...';
+    btn.disabled = true;
+
+    try {
+      const formData = new FormData();
+      formData.append('item_id', itemId);
+      formData.append('quantity', '1');
+      formData.append('csrf_token', '{{ csrf_token() }}');
+      if (selectedColor) {
+        formData.append('selected_color', selectedColor);
+      }
+
+      const res = await fetch('{{ url_for("user.add_to_cart_route") }}', {
+        method: 'POST',
+        body: formData
+      });
+
+      const data = await res.json();
+
+      if (res.ok) {
+        btn.textContent = '✓ Added to Cart!';
+        setTimeout(() => { btn.textContent = originalText; btn.disabled = false; }, 2000);
+
+        // Update cart badge
+        const cartBadge = document.querySelector('.cart-badge');
+        if (cartBadge) {
+          cartBadge.textContent = data.item_count;
+        } else if (data.item_count > 0) {
+          const cartLink = document.querySelector('.nav-cart');
+          const badge = document.createElement('span');
+          badge.className = 'cart-badge';
+          badge.textContent = data.item_count;
+          cartLink.appendChild(badge);
+        }
+      } else {
+        btn.textContent = originalText;
+        btn.disabled = false;
+        alert(data.error || 'Failed to add to cart');
+      }
+    } catch (err) {
+      console.error('Add to cart failed:', err);
+      btn.textContent = '✗ Error';
+      setTimeout(() => { btn.textContent = originalText; btn.disabled = false; }, 2000);
+    }
+  });
 </script>
 {% endblock %}

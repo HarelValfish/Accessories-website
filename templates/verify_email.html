@@ -1,0 +1,26 @@
+{% extends "base.html" %}
+{% block title %}{% if success %}Email Verified{% else %}Verification Failed{% endif %} — TechDen{% endblock %}
+
+{% block content %}
+<div class="auth-page">
+  <div class="auth-card" data-animate>
+    {% if success %}
+    <div class="verification-icon">✅</div>
+    <h1 class="auth-title">Email Verified!</h1>
+    <p class="auth-subtitle">Your account has been successfully verified.</p>
+    <p class="verification-instructions">
+      You can now log in and start shopping for accessories.
+    </p>
+    <a href="{{ url_for('user.login') }}" class="btn-primary btn-block">Go to Login</a>
+    {% else %}
+    <div class="verification-icon">❌</div>
+    <h1 class="auth-title">Verification Failed</h1>
+    <p class="auth-subtitle">{{ error }}</p>
+    <p class="verification-instructions">
+      The verification link may have expired or is invalid.
+    </p>
+    <a href="{{ url_for('user.register') }}" class="btn-primary btn-block">Register Again</a>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}

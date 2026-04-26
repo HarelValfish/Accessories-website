@@ -58,25 +58,28 @@
         <p class="card-desc">{{ item['description'][:80] }}{% if item['description']|length > 80 %}…{% endif %}</p>
         <div class="card-footer">
           <span class="card-price">${{ "%.2f"|format(item['price']) }}</span>
-          <div style="display:flex;align-items:center;gap:0.5rem;">
-            {% if item.get('colors_enabled') and item.get('colors') %}
-            <div class="card-color-dots">
-              {% for color in item['colors'][:5] %}
-              <span class="card-color-dot" style="background:{{ color['hex'] }}" title="{{ color['name'] }}"></span>
-              {% endfor %}
-              {% if item['colors']|length > 5 %}
-              <span class="card-color-more">+{{ item['colors']|length - 5 }}</span>
-              {% endif %}
-            </div>
-            {% endif %}
-            {% if item.get('stock', 0) <= 5 and item.get('stock', 0) > 0 %}
-              <span class="stock-badge stock-low">Only {{ item['stock'] }} left</span>
-            {% elif item.get('stock', 0) == 0 %}
-              <span class="stock-badge stock-out">Out of stock</span>
-            {% else %}
-              <span class="stock-badge stock-ok">In stock</span>
+          <button class="btn-add-cart" data-item-id="{{ item['_id'] }}" {% if item.get('stock', 0) == 0 %}disabled{% endif %}>
+            {% if item.get('stock', 0) == 0 %}Out of Stock{% else %}Add to Cart{% endif %}
+          </button>
+        </div>
+        <div class="card-meta">
+          {% if item.get('colors_enabled') and item.get('colors') %}
+          <div class="card-color-dots">
+            {% for color in item['colors'][:5] %}
+            <span class="card-color-dot" style="background:{{ color['hex'] }}" title="{{ color['name'] }}"></span>
+            {% endfor %}
+            {% if item['colors']|length > 5 %}
+            <span class="card-color-more">+{{ item['colors']|length - 5 }}</span>
             {% endif %}
           </div>
+          {% endif %}
+          {% if item.get('stock', 0) <= 5 and item.get('stock', 0) > 0 %}
+            <span class="stock-badge stock-low">Only {{ item['stock'] }} left</span>
+          {% elif item.get('stock', 0) == 0 %}
+            <span class="stock-badge stock-out">Out of stock</span>
+          {% else %}
+            <span class="stock-badge stock-ok">In stock</span>
+          {% endif %}
         </div>
       </div>
     </article>
@@ -91,4 +94,59 @@
   </div>
   {% endif %}
 </section>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+  // Add to cart functionality
+  document.querySelectorAll('.btn-add-cart').forEach(btn => {
+    btn.addEventListener('click', async (e) => {
+      e.preventDefault();
+      const itemId = btn.dataset.itemId;
+      const originalText = btn.textContent;
+
+      btn.textContent = '⏳ Adding...';
+      btn.disabled = true;
+
+      try {
+        const formData = new FormData();
+        formData.append('item_id', itemId);
+        formData.append('quantity', '1');
+        formData.append('csrf_token', '{{ csrf_token() }}');
+
+        const res = await fetch('{{ url_for("user.add_to_cart_route") }}', {
+          method: 'POST',
+          body: formData
+        });
+
+        const data = await res.json();
+
+        if (res.ok) {
+          btn.textContent = '✓ Added!';
+          setTimeout(() => { btn.textContent = originalText; btn.disabled = false; }, 1500);
+
+          // Update cart badge
+          const cartBadge = document.querySelector('.cart-badge');
+          if (cartBadge) {
+            cartBadge.textContent = data.item_count;
+          } else if (data.item_count > 0) {
+            const cartLink = document.querySelector('.nav-cart');
+            const badge = document.createElement('span');
+            badge.className = 'cart-badge';
+            badge.textContent = data.item_count;
+            cartLink.appendChild(badge);
+          }
+        } else {
+          btn.textContent = originalText;
+          btn.disabled = false;
+          alert(data.error || 'Failed to add to cart');
+        }
+      } catch (err) {
+        console.error('Add to cart failed:', err);
+        btn.textContent = '✗ Error';
+        setTimeout(() => { btn.textContent = originalText; btn.disabled = false; }, 1500);
+      }
+    });
+  });
+</script>
 {% endblock %}

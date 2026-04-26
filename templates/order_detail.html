@@ -1,0 +1,78 @@
+{% extends "base.html" %}
+{% block title %}Order {{ order.order_number }} — TechDen{% endblock %}
+
+{% block content %}
+<div class="order-detail-page">
+  <div class="order-detail-header">
+    <h1 class="page-title">Order Details</h1>
+    <a href="{{ url_for('user.account') }}" class="btn-secondary">← Back to Orders</a>
+  </div>
+
+  <div class="order-detail-card" data-animate>
+    <div class="order-meta">
+      <div class="meta-item">
+        <span class="meta-label">Order Number</span>
+        <span class="meta-value">{{ order.order_number }}</span>
+      </div>
+      <div class="meta-item">
+        <span class="meta-label">Date</span>
+        <span class="meta-value">{{ order.created_at.strftime('%B %d, %Y at %I:%M %p') }}</span>
+      </div>
+      <div class="meta-item">
+        <span class="meta-label">Status</span>
+        <span class="status-badge status-{{ order.status }}">{{ order.status|capitalize }}</span>
+      </div>
+    </div>
+
+    <div class="order-section">
+      <h3 class="section-title">Items</h3>
+      <div class="order-items">
+        {% for item in order['items'] %}
+        <div class="order-item-row">
+          <img src="{{ item.image_url }}" alt="{{ item.name }}" class="order-item-image" />
+          <div class="order-item-info">
+            <h4>{{ item.name }}</h4>
+            {% if item.selected_color %}
+            <p class="item-color">Color: {{ item.selected_color }}</p>
+            {% endif %}
+            <p class="item-quantity">Quantity: {{ item.quantity }}</p>
+          </div>
+          <div class="order-item-price">
+            <p>${{ "%.2f"|format(item.price) }} each</p>
+            <p class="item-total"><strong>${{ "%.2f"|format(item.price * item.quantity) }}</strong></p>
+          </div>
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+
+    <div class="order-section">
+      <h3 class="section-title">Order Summary</h3>
+      <div class="order-totals">
+        <div class="total-row">
+          <span>Subtotal</span>
+          <span>${{ "%.2f"|format(order.subtotal) }}</span>
+        </div>
+        <div class="total-row">
+          <span>Shipping</span>
+          <span>{% if order.shipping > 0 %}${{ "%.2f"|format(order.shipping) }}{% else %}FREE{% endif %}</span>
+        </div>
+        <div class="total-row total-final">
+          <span>Total</span>
+          <span>${{ "%.2f"|format(order.total) }}</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="order-section">
+      <h3 class="section-title">Shipping Address</h3>
+      <div class="shipping-info">
+        <p>{{ order.shipping_address.name }}</p>
+        <p>{{ order.shipping_address.address }}</p>
+        <p>{{ order.shipping_address.city }}, {{ order.shipping_address.state }} {{ order.shipping_address.zip }}</p>
+        <p>{{ order.shipping_address.country }}</p>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

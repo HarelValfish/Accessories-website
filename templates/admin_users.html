@@ -1,0 +1,60 @@
+{% extends "base.html" %}
+{% block title %}Manage Users — TechDen Admin{% endblock %}
+
+{% block content %}
+<div class="admin-page">
+  <div class="admin-header">
+    <div>
+      <h1 class="admin-title">User Management</h1>
+      <p class="admin-sub">View and manage customer accounts</p>
+    </div>
+    <a href="{{ url_for('admin.dashboard') }}" class="btn-edit">← Back to Dashboard</a>
+  </div>
+
+  <div class="admin-stats" data-animate>
+    <div class="stat-card">
+      <span class="stat-value">{{ users|length }}</span>
+      <span class="stat-label">Total Users</span>
+    </div>
+    <div class="stat-card">
+      <span class="stat-value">{{ users|selectattr('is_verified')|list|length }}</span>
+      <span class="stat-label">Verified Users</span>
+    </div>
+    <div class="stat-card">
+      <span class="stat-value">${{ "%.2f"|format(users|sum(attribute='total_spent')) }}</span>
+      <span class="stat-label">Total Revenue</span>
+    </div>
+  </div>
+
+  <div class="table-card" data-animate>
+    <table class="admin-table">
+      <thead>
+        <tr>
+          <th>Email</th>
+          <th>Joined</th>
+          <th>Verified</th>
+          <th>Orders</th>
+          <th>Total Spent</th>
+          <th>Last Order</th>
+          <th>Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for user in users %}
+        <tr>
+          <td>{{ user.email }}</td>
+          <td>{{ user.created_at.strftime('%b %d, %Y') if user.created_at else 'N/A' }}</td>
+          <td>{% if user.is_verified %}<span class="status-verified">✓</span>{% else %}<span class="status-unverified">✗</span>{% endif %}</td>
+          <td>{{ user.order_count }}</td>
+          <td>${{ "%.2f"|format(user.total_spent) }}</td>
+          <td>{{ user.last_order_date.strftime('%b %d, %Y') if user.last_order_date else 'Never' }}</td>
+          <td class="actions-cell">
+            <a href="{{ url_for('admin.admin_user_detail', user_id=user._id) }}" class="btn-edit">View</a>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}

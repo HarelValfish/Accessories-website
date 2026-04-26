@@ -1,0 +1,49 @@
+{% extends "base.html" %}
+{% block title %}My Account — TechDen{% endblock %}
+
+{% block content %}
+<div class="account-page">
+  <div class="account-header">
+    <h1 class="page-title">My Account</h1>
+    <p class="page-subtitle">{{ user.email }}</p>
+  </div>
+
+  <div class="account-info" data-animate>
+    <h2 class="section-title">Account Information</h2>
+    <p><strong>Email:</strong> {{ user.email }}</p>
+    <p><strong>Member Since:</strong> {{ user.created_at.strftime('%B %d, %Y') }}</p>
+    <p><strong>Status:</strong> {% if user.is_verified %}Verified ✅{% else %}Not Verified{% endif %}</p>
+  </div>
+
+  <div class="account-orders">
+    <h2 class="section-title">{% if orders|length == 5 %}Recent Orders{% else %}Order History{% endif %}</h2>
+
+    {% if orders %}
+    <div class="orders-list">
+      {% for order in orders %}
+      <div class="order-card" data-animate>
+        <div class="order-header">
+          <span class="order-number">{{ order.order_number }}</span>
+          <span class="order-status status-{{ order.status }}">{{ order.status|capitalize }}</span>
+        </div>
+        <div class="order-details">
+          <p><strong>Date:</strong> {{ order.created_at.strftime('%B %d, %Y at %I:%M %p') }}</p>
+          <p><strong>Items:</strong> {{ order['items']|length }} item(s)</p>
+          <p><strong>Total:</strong> ${{ "%.2f"|format(order.total) }}</p>
+        </div>
+        <a href="{{ url_for('user.order_detail', order_id=order._id) }}" class="btn-edit">View Details</a>
+      </div>
+      {% endfor %}
+    </div>
+
+    {% if orders|length == 5 %}
+    <a href="{{ url_for('user.order_history') }}" class="btn-secondary">View All Orders</a>
+    {% endif %}
+
+    {% else %}
+    <p class="no-orders">You haven't placed any orders yet.</p>
+    <a href="{{ url_for('public.index') }}" class="btn-primary">Start Shopping</a>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}

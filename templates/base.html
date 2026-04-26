@@ -20,11 +20,29 @@
     </a>
     <div class="nav-right">
       <a href="{{ url_for('public.index') }}" class="nav-link">Shop</a>
-      {% if session.get('admin_logged_in') %}
-        <a href="{{ url_for('admin.dashboard') }}" class="nav-link">Admin Panel</a>
-        <a href="{{ url_for('auth.admin_logout') }}" class="nav-link nav-logout">Logout</a>
+
+      {# Cart link with badge #}
+      <a href="{{ url_for('user.view_cart') }}" class="nav-link nav-cart">
+        🛒 Cart
+        {% set cart = session.get('cart', []) %}
+        {% if cart %}
+        {% set item_count = cart|sum(attribute='quantity') %}
+        <span class="cart-badge">{{ item_count }}</span>
+        {% endif %}
+      </a>
+
+      {# User authentication links #}
+      {% if session.get('user_id') %}
+        <a href="{{ url_for('user.account') }}" class="nav-link">Account</a>
+        <a href="{{ url_for('user.logout') }}" class="nav-link nav-logout">Logout</a>
       {% else %}
-        <a href="{{ url_for('auth.admin_login') }}" class="nav-link nav-admin">Admin</a>
+        <a href="{{ url_for('user.login') }}" class="nav-link">Login</a>
+        <a href="{{ url_for('user.register') }}" class="nav-link nav-admin">Register</a>
+      {% endif %}
+
+      {# Admin links (separate from user auth) #}
+      {% if session.get('admin_logged_in') %}
+        <a href="{{ url_for('admin.dashboard') }}" class="nav-link nav-admin-panel">Admin Panel</a>
       {% endif %}
     </div>
   </nav>

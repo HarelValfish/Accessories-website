@@ -1,0 +1,170 @@
+{% extends "base.html" %}
+{% block title %}Shopping Cart — TechDen{% endblock %}
+
+{% block content %}
+<div class="cart-page">
+  <div class="cart-header">
+    <h1 class="page-title">Shopping Cart</h1>
+    <p class="page-subtitle">{% if cart %}{{ totals.item_count }} item(s) in your cart{% else %}Your cart is empty{% endif %}</p>
+  </div>
+
+{% if error %}
+  <div class="alert alert-error" style="margin-bottom: 2rem;" data-animate>{{ error|safe }}</div>
+  {% endif %}
+
+  {% if cart %}
+  <div class="cart-content">
+    <div class="cart-items">
+      {% for item in cart %}
+      <div class="cart-item" data-animate>
+        <img src="{{ item.image_url }}" alt="{{ item.name }}" class="cart-item-image" />
+        <div class="cart-item-details">
+          <h3 class="cart-item-name">{{ item.name }}</h3>
+          {% if item.selected_color %}
+          <p class="cart-item-color">Color: {{ item.selected_color }}</p>
+          {% endif %}
+          <p class="cart-item-price">${{ "%.2f"|format(item.price) }}</p>
+        </div>
+        <div class="cart-item-quantity">
+          <input type="number"
+                 class="quantity-input"
+                 value="{{ item.quantity }}"
+                 min="1"
+                 max="{{ item.available_stock }}"
+                 data-item-id="{{ item.item_id }}"
+                 data-color="{{ item.selected_color or '' }}"
+                 data-price="{{ item.price }}"
+                 data-max-stock="{{ item.available_stock }}" />
+          <small class="stock-hint">Max: {{ item.available_stock }}</small>
+        </div>
+        <div class="cart-item-total">
+          <p class="item-total" data-item-total>${{ "%.2f"|format(item.price * item.quantity) }}</p>
+        </div>
+        <form method="POST" action="{{ url_for('user.remove_from_cart_route', item_id=item.item_id) }}" class="remove-form">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+          <input type="hidden" name="selected_color" value="{{ item.selected_color or '' }}" />
+          <button type="submit" class="btn-remove">✕</button>
+        </form>
+      </div>
+      {% endfor %}
+    </div>
+
+    <div class="cart-summary" data-animate>
+      <h3 class="summary-title">Order Summary</h3>
+      <div class="summary-row">
+        <span>Subtotal</span>
+        <span id="subtotal">${{ "%.2f"|format(totals.subtotal) }}</span>
+      </div>
+      <div class="summary-row">
+        <span>Shipping</span>
+        <span id="shipping">{% if totals.shipping > 0 %}${{ "%.2f"|format(totals.shipping) }}{% else %}FREE{% endif %}</span>
+      </div>
+      {% if totals.subtotal < 50 and totals.subtotal > 0 %}
+      <p class="free-shipping-notice" id="shipping-notice">💡 Free shipping on orders over $50</p>
+      {% endif %}
+      <div class="summary-row summary-total">
+        <span>Total</span>
+        <span id="total">${{ "%.2f"|format(totals.total) }}</span>
+      </div>
+      <a href="{{ url_for('user.checkout') }}" class="btn-primary btn-block">Proceed to Checkout</a>
+      <a href="{{ url_for('public.index') }}" class="btn-secondary btn-block">Continue Shopping</a>
+    </div>
+  </div>
+  {% else %}
+  <div class="empty-cart" data-animate>
+    <p class="empty-message">Your cart is empty</p>
+    <a href="{{ url_for('public.index') }}" class="btn-primary">Start Shopping</a>
+  </div>
+  {% endif %}
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+  // Update cart quantities with AJAX
+  document.querySelectorAll('.quantity-input').forEach(input => {
+    let timeout = null;
+
+    input.addEventListener('change', async function() {
+      clearTimeout(timeout);
+
+      const itemId = this.dataset.itemId;
+      const color = this.dataset.color;
+      const price = parseFloat(this.dataset.price);
+      const maxStock = parseInt(this.dataset.maxStock);
+      let quantity = parseInt(this.value);
+
+      // Validate quantity
+      if (quantity < 1) {
+        this.value = 1;
+        return;
+      }
+
+      if (quantity > maxStock) {
+        alert(`Only ${maxStock} available in stock`);
+        this.value = maxStock;
+        quantity = maxStock;
+      }
+
+      // Update item total immediately for better UX
+      const itemTotalEl = this.closest('.cart-item').querySelector('[data-item-total]');
+      itemTotalEl.textContent = `$${(price * quantity).toFixed(2)}`;
+
+      // Send AJAX request to update server-side cart
+      try {
+        const formData = new FormData();
+        formData.append('item_id', itemId);
+        formData.append('quantity', quantity);
+        formData.append('selected_color', color);
+        formData.append('csrf_token', '{{ csrf_token() }}');
+
+        const res = await fetch('{{ url_for("user.update_cart_route") }}', {
+          method: 'POST',
+          headers: {
+            'X-Requested-With': 'XMLHttpRequest',
+            'Accept': 'application/json'
+          },
+          body: formData
+        });
+
+        const data = await res.json();
+
+        if (res.ok) {
+          // Update summary totals
+          document.getElementById('subtotal').textContent = `$${data.totals.subtotal.toFixed(2)}`;
+          document.getElementById('total').textContent = `$${data.totals.total.toFixed(2)}`;
+
+          const shippingEl = document.getElementById('shipping');
+          if (data.totals.shipping > 0) {
+            shippingEl.textContent = `$${data.totals.shipping.toFixed(2)}`;
+          } else {
+            shippingEl.textContent = 'FREE';
+          }
+
+          // Update free shipping notice
+          const noticeEl = document.getElementById('shipping-notice');
+          if (data.totals.subtotal < 50 && data.totals.subtotal > 0) {
+            if (!noticeEl) {
+              const notice = document.createElement('p');
+              notice.className = 'free-shipping-notice';
+              notice.id = 'shipping-notice';
+              notice.textContent = '💡 Free shipping on orders over $50';
+              document.getElementById('shipping').parentElement.after(notice);
+            }
+          } else if (noticeEl) {
+            noticeEl.remove();
+          }
+        } else {
+          // Show error message
+          alert(data.error || 'Failed to update cart');
+          location.reload();
+        }
+      } catch (err) {
+        console.error('Cart update failed:', err);
+        alert('Failed to update cart. Please try again.');
+        location.reload();
+      }
+    });
+  });
+</script>
+{% endblock %}

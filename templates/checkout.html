@@ -1,0 +1,79 @@
+{% extends "base.html" %}
+{% block title %}Checkout — TechDen{% endblock %}
+
+{% block content %}
+<div class="checkout-page">
+  <h1 class="page-title">Checkout</h1>
+
+  {% if error %}
+  <div class="alert alert-error">{{ error }}</div>
+  {% endif %}
+
+  <div class="checkout-content">
+    <div class="checkout-form-section" data-animate>
+      <h2 class="section-title">Shipping Address</h2>
+      <form method="POST" class="checkout-form">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+        <div class="form-group">
+          <label class="field-label" for="name">Full Name *</label>
+          <input type="text" id="name" name="name" class="field-input" required />
+        </div>
+
+        <div class="form-group">
+          <label class="field-label" for="address">Street Address *</label>
+          <input type="text" id="address" name="address" class="field-input" required />
+        </div>
+
+        <div class="form-row">
+          <div class="form-group">
+            <label class="field-label" for="city">City *</label>
+            <input type="text" id="city" name="city" class="field-input" required />
+          </div>
+          <div class="form-group">
+            <label class="field-label" for="state">State *</label>
+            <input type="text" id="state" name="state" class="field-input" required />
+          </div>
+          <div class="form-group">
+            <label class="field-label" for="zip">ZIP Code *</label>
+            <input type="text" id="zip" name="zip" class="field-input" required />
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label class="field-label" for="country">Country</label>
+          <input type="text" id="country" name="country" class="field-input" value="USA" required />
+        </div>
+
+        <button type="submit" class="btn-primary btn-block">Place Order (Demo)</button>
+        <a href="{{ url_for('user.view_cart') }}" class="btn-secondary btn-block">Back to Cart</a>
+      </form>
+    </div>
+
+    <div class="checkout-summary" data-animate>
+      <h2 class="section-title">Order Summary</h2>
+      <div class="summary-items">
+        {% for item in cart %}
+        <div class="summary-item">
+          <span class="item-name">{{ item.name }} x{{ item.quantity }}</span>
+          <span class="item-price">${{ "%.2f"|format(item.price * item.quantity) }}</span>
+        </div>
+        {% endfor %}
+      </div>
+      <div class="summary-totals">
+        <div class="summary-row">
+          <span>Subtotal</span>
+          <span>${{ "%.2f"|format(totals.subtotal) }}</span>
+        </div>
+        <div class="summary-row">
+          <span>Shipping</span>
+          <span>{% if totals.shipping > 0 %}${{ "%.2f"|format(totals.shipping) }}{% else %}FREE{% endif %}</span>
+        </div>
+        <div class="summary-row summary-total">
+          <span>Total</span>
+          <span>${{ "%.2f"|format(totals.total) }}</span>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

@@ -1,0 +1,77 @@
+{% extends "base.html" %}
+{% block title %}User Details — TechDen Admin{% endblock %}
+
+{% block content %}
+<div class="admin-page">
+  <div class="admin-header">
+    <div>
+      <h1 class="admin-title">User Details</h1>
+      <p class="admin-sub">{{ user.email }}</p>
+    </div>
+    <a href="{{ url_for('admin.admin_users') }}" class="btn-edit">← Back to Users</a>
+  </div>
+
+  <div class="user-info-card" data-animate>
+    <h3>Account Information</h3>
+    <div class="info-grid">
+      <div class="info-item">
+        <span class="info-label">Email</span>
+        <span class="info-value">{{ user.email }}</span>
+      </div>
+      <div class="info-item">
+        <span class="info-label">Member Since</span>
+        <span class="info-value">{{ user.created_at.strftime('%B %d, %Y') if user.created_at else 'N/A' }}</span>
+      </div>
+      <div class="info-item">
+        <span class="info-label">Verified</span>
+        <span class="info-value">{% if user.is_verified %}Yes ✅{% else %}No ❌{% endif %}</span>
+      </div>
+      <div class="info-item">
+        <span class="info-label">Total Orders</span>
+        <span class="info-value">{{ orders|length }}</span>
+      </div>
+      <div class="info-item">
+        <span class="info-label">Total Spent</span>
+        <span class="info-value">${{ "%.2f"|format(total_spent) }}</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="user-orders-section">
+    <h3 class="section-title">Order History</h3>
+
+    {% if orders %}
+    <div class="table-card" data-animate>
+      <table class="admin-table">
+        <thead>
+          <tr>
+            <th>Order Number</th>
+            <th>Date</th>
+            <th>Items</th>
+            <th>Total</th>
+            <th>Status</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for order in orders %}
+          <tr>
+            <td>{{ order.order_number }}</td>
+            <td>{{ order.created_at.strftime('%b %d, %Y') }}</td>
+            <td>{{ order['items']|length }} item(s)</td>
+            <td>${{ "%.2f"|format(order.total) }}</td>
+            <td><span class="status-badge status-{{ order.status }}">{{ order.status|capitalize }}</span></td>
+            <td class="actions-cell">
+              <a href="{{ url_for('user.order_detail', order_id=order._id) }}" class="btn-edit">View</a>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% else %}
+    <p class="no-data">This user has not placed any orders yet.</p>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}

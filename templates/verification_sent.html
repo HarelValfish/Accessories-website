@@ -1,0 +1,22 @@
+{% extends "base.html" %}
+{% block title %}Check Your Email — TechDen{% endblock %}
+
+{% block content %}
+<div class="auth-page">
+  <div class="auth-card" data-animate>
+    <div class="verification-icon">📧</div>
+    <h1 class="auth-title">Check Your Email</h1>
+    <p class="auth-subtitle">We've sent a verification link to:</p>
+    <p class="verification-email">{{ email }}</p>
+
+    <p class="verification-instructions">
+      Click the link in the email to verify your account and start shopping.
+      The link expires in 24 hours.
+    </p>
+
+    <p class="auth-footer">
+      Didn't receive the email? Check your spam folder or <a href="{{ url_for('user.register') }}" class="auth-link">try again</a>
+    </p>
+  </div>
+</div>
+{% endblock %}
