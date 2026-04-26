@@ -1,0 +1,53 @@
+{% extends "base.html" %}
+{% block title %}{{ item['name'] }} — TechDen{% endblock %}
+
+{% block content %}
+<div class="detail-page">
+  <a href="{{ url_for('public.index') }}" class="back-link" data-animate="fade">← Back to shop</a>
+
+  <div class="detail-grid">
+    <!-- Image -->
+    <div class="detail-image-wrap" data-animate="left">
+      <img src="{{ item.get('image_url', 'https://picsum.photos/640/400') }}"
+           alt="{{ item['name'] }}"
+           class="detail-image"
+           onerror="this.src='https://picsum.photos/seed/default/640/400'" />
+    </div>
+
+    <!-- Info -->
+    <div class="detail-info" data-animate>
+      <span class="card-category">{{ item.get('category', '') }}</span>
+      <h1 class="detail-title">{{ item['name'] }}</h1>
+      <p class="detail-price">${{ "%.2f"|format(item['price']) }}</p>
+      <p class="detail-desc">{{ item['description'] }}</p>
+
+      <div class="detail-meta">
+        <div class="meta-row">
+          <span class="meta-label">Item ID</span>
+          <span class="meta-val mono">{{ item['_id'] }}</span>
+        </div>
+        <div class="meta-row">
+          <span class="meta-label">Category</span>
+          <span class="meta-val">{{ item.get('category', '—') }}</span>
+        </div>
+        <div class="meta-row">
+          <span class="meta-label">Stock</span>
+          <span class="meta-val">
+            {% if item.get('stock', 0) == 0 %}
+              <span class="stock-badge stock-out">Out of stock</span>
+            {% elif item.get('stock', 0) <= 5 %}
+              <span class="stock-badge stock-low">{{ item['stock'] }} remaining</span>
+            {% else %}
+              <span class="stock-badge stock-ok">{{ item['stock'] }} in stock</span>
+            {% endif %}
+          </span>
+        </div>
+      </div>
+
+      <button class="btn-primary btn-buy" onclick="alert('Cart feature coming soon!')">
+        Add to Cart
+      </button>
+    </div>
+  </div>
+</div>
+{% endblock %}

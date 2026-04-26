@@ -1,0 +1,153 @@
+{% extends "base.html" %}
+{% block title %}{{ action }} Item — TechDen Admin{% endblock %}
+
+{% block content %}
+<div class="admin-page">
+  <div class="admin-header">
+    <div>
+      <h1 class="admin-title">{{ action }} Item</h1>
+      <p class="admin-sub">Fill in the details below. Leave Image URL blank to auto-fetch from the web.</p>
+    </div>
+    <a href="{{ url_for('admin.dashboard') }}" class="btn-edit">← Back</a>
+  </div>
+
+  <div class="form-card" data-animate>
+    <form method="POST" id="itemForm">
+
+      <!-- Name -->
+      <div class="form-group">
+        <label class="field-label" for="name">Product Name *</label>
+        <input type="text" id="name" name="name" class="field-input"
+               value="{{ item['name'] if item else '' }}"
+               placeholder="e.g. USB-C 7-in-1 Hub" required />
+      </div>
+
+      <!-- Description -->
+      <div class="form-group">
+        <label class="field-label" for="description">Description *</label>
+        <textarea id="description" name="description" class="field-input field-textarea"
+                  placeholder="Describe the product…" required>{{ item['description'] if item else '' }}</textarea>
+      </div>
+
+      <!-- Category -->
+      <div class="form-group">
+        <label class="field-label" for="category">Category</label>
+        <input type="text" id="category" name="category" class="field-input"
+               value="{{ item['category'] if item else '' }}"
+               placeholder="e.g. Adapters, Cables, Gadgets…" />
+      </div>
+
+      <!-- Price + Stock row -->
+      <div class="form-row">
+        <div class="form-group">
+          <label class="field-label" for="price">Price (USD) *</label>
+          <input type="number" id="price" name="price" class="field-input"
+                 min="0" step="0.01"
+                 value="{{ item['price'] if item else '0.00' }}" required />
+        </div>
+        <div class="form-group">
+          <label class="field-label" for="stock">Stock Quantity *</label>
+          <input type="number" id="stock" name="stock" class="field-input"
+                 min="0" step="1"
+                 value="{{ item['stock'] if item else '0' }}" required />
+        </div>
+      </div>
+
+      <!-- Image section -->
+      <div class="form-group">
+        <label class="field-label">Product Image</label>
+        <div class="image-options">
+          <div class="image-option">
+            <p class="image-option-label">Option A — Paste a URL</p>
+            <div class="image-url-row">
+              <input type="url" id="image_url" name="image_url" class="field-input"
+                     value="{{ item['image_url'] if item else '' }}"
+                     placeholder="https://example.com/image.jpg" />
+              <button type="button" class="btn-edit" id="clearImageBtn">✕ Clear</button>
+            </div>
+          </div>
+          <div class="image-option-divider">or</div>
+          <div class="image-option">
+            <p class="image-option-label">Option B — Auto-fetch from web</p>
+            <button type="button" class="btn-primary" id="fetchImageBtn" style="width:100%">🔍 Find image automatically</button>
+            <p class="field-hint">Searches the web using the product name &amp; description. Requires name to be filled in first.</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Image preview -->
+      <div class="form-group" id="previewWrap" style="{% if not item or not item.get('image_url') %}display:none{% endif %}">
+        <label class="field-label">Image Preview</label>
+        <img id="imagePreview"
+             src="{{ item['image_url'] if item and item.get('image_url') else '' }}"
+             alt="Preview" class="image-preview"
+             onerror="this.style.display='none'" />
+      </div>
+
+      <div class="form-actions">
+        <button type="submit" class="btn-primary">{{ action }} Item</button>
+        <a href="{{ url_for('admin.dashboard') }}" class="btn-cancel">Cancel</a>
+      </div>
+    </form>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+  const imageUrlInput = document.getElementById('image_url');
+  const imagePreview  = document.getElementById('imagePreview');
+  const previewWrap   = document.getElementById('previewWrap');
+
+  function showPreview(url) {
+    if (url) {
+      imagePreview.src = url;
+      imagePreview.style.display = 'block';
+      previewWrap.style.display  = 'block';
+    } else {
+      previewWrap.style.display = 'none';
+    }
+  }
+
+  // Live preview when URL is typed
+  imageUrlInput.addEventListener('input', () => showPreview(imageUrlInput.value.trim()));
+
+  // Clear button
+  document.getElementById('clearImageBtn').addEventListener('click', () => {
+    imageUrlInput.value = '';
+    previewWrap.style.display = 'none';
+  });
+
+  // Auto-fetch button
+  document.getElementById('fetchImageBtn').addEventListener('click', async () => {
+    const name = document.getElementById('name').value.trim();
+    const desc = document.getElementById('description').value.trim();
+
+    if (!name) {
+      alert('Please enter a product name first.');
+      return;
+    }
+
+    const btn = document.getElementById('fetchImageBtn');
+    btn.textContent = '⏳ Searching…';
+    btn.disabled = true;
+
+    try {
+      const res  = await fetch(`/api/fetch-image?name=${encodeURIComponent(name)}&description=${encodeURIComponent(desc)}`);
+      const data = await res.json();
+
+      if (data.image_url) {
+        imageUrlInput.value = data.image_url;
+        showPreview(data.image_url);
+      } else {
+        alert('No image found. Try a different name or paste a URL manually.');
+      }
+    } catch (err) {
+      alert('Could not fetch image. Try again or paste a URL manually.');
+    } finally {
+      btn.textContent = '🔍 Find image automatically';
+      btn.disabled = false;
+    }
+  });
+</script>
+{% endblock %}

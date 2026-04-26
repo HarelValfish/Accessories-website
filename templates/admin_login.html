@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Admin Login — TechDen</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;700;800&family=DM+Sans:wght@300;400&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body class="login-page">
+
+<div class="login-card">
+  <div class="login-logo">
+    <span class="logo-icon">⬡</span>
+    <span class="logo-text">TECH<strong>DEN</strong></span>
+  </div>
+  <h2 class="login-title">Admin Access</h2>
+  <p class="login-sub">Enter your password to manage inventory.</p>
+
+  {% if error %}
+    <div class="alert alert-error">{{ error }}</div>
+  {% endif %}
+
+  <form method="POST" action="{{ url_for('auth.admin_login') }}" class="login-form">
+    <label class="field-label" for="password">Password</label>
+    <input type="password" id="password" name="password"
+           placeholder="••••••••" class="field-input" autofocus required />
+    <button type="submit" class="btn-primary login-btn">Enter Panel →</button>
+  </form>
+
+  <a href="{{ url_for('public.index') }}" class="back-link" style="display:block;text-align:center;margin-top:1.5rem;">← Back to store</a>
+</div>
+
+</body>
+</html>
