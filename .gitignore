@@ -1,19 +1,250 @@
-# Python
+# ══════════════════════════════════════════════════════════════════════
+#  SENSITIVE FILES (NEVER COMMIT THESE)
+# ══════════════════════════════════════════════════════════════════════
+
+# Environment variables (contains passwords, API keys, secrets)
+.env
+.env.*
+!.env.example
+
+# Private keys and credentials
+*.pem
+*.key
+*.cert
+*.p12
+credentials.json
+secrets.yaml
+
+# ══════════════════════════════════════════════════════════════════════
+#  PYTHON
+# ══════════════════════════════════════════════════════════════════════
+
+# Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
-*.pyo
+*$py.class
+
+# C extensions
+*.so
+
+# Distribution / packaging
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+pip-wheel-metadata/
+share/python-wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# PyInstaller
+*.manifest
+*.spec
+
+# Unit test / coverage reports
+htmlcov/
+.tox/
+.nox/
+.coverage
+.coverage.*
+.cache
+nosetests.xml
+coverage.xml
+*.cover
+*.py,cover
+.hypothesis/
+.pytest_cache/
+
+# Flask stuff
+instance/
+.webassets-cache
+
+# Scrapy stuff
+.scrapy
+
+# Sphinx documentation
+docs/_build/
+
+# PyBuilder
+target/
+
+# Jupyter Notebook
+.ipynb_checkpoints
+
+# IPython
+profile_default/
+ipython_config.py
+
+# pyenv
+.python-version
+
+# pipenv
+Pipfile.lock
+
+# PEP 582
+__pypackages__/
+
+# Celery stuff
+celerybeat-schedule
+celerybeat.pid
+
+# SageMath parsed files
+*.sage.py
+
+# Virtual environments
 venv/
+env/
+ENV/
+env.bak/
+venv.bak/
 .venv/
 
-# Environment — never commit secrets
-.env
+# Spyder project settings
+.spyderproject
+.spyproject
+
+# Rope project settings
+.ropeproject
+
+# mkdocs documentation
+/site
+
+# mypy
+.mypy_cache/
+.dmypy.json
+dmypy.json
+
+# Pyre type checker
+.pyre/
+
+# ══════════════════════════════════════════════════════════════════════
+#  IDEs & EDITORS
+# ══════════════════════════════════════════════════════════════════════
+
+# VS Code
+.vscode/
+*.code-workspace
+
+# PyCharm / IntelliJ
+.idea/
+*.iml
+*.iws
+*.ipr
+
+# Sublime Text
+*.sublime-project
+*.sublime-workspace
+
+# Vim
+*.swp
+*.swo
+*~
+.vim/
+
+# Emacs
+*~
+\#*\#
+/.emacs.desktop
+/.emacs.desktop.lock
+*.elc
+
+# ══════════════════════════════════════════════════════════════════════
+#  OPERATING SYSTEMS
+# ══════════════════════════════════════════════════════════════════════
 
 # macOS
 .DS_Store
+.AppleDouble
+.LSOverride
+Icon
+._*
+.DocumentRevisions-V100
+.fseventsd
+.Spotlight-V100
+.TemporaryItems
+.Trashes
+.VolumeIcon.icns
+.com.apple.timemachine.donotpresent
+.AppleDB
+.AppleDesktop
+Network Trash Folder
+Temporary Items
+.apdisk
+
+# Windows
+Thumbs.db
+Thumbs.db:encryptable
+ehthumbs.db
+ehthumbs_vista.db
+*.stackdump
+[Dd]esktop.ini
+$RECYCLE.BIN/
+*.cab
+*.msi
+*.msix
+*.msm
+*.msp
+*.lnk
+
+# Linux
+*~
+.directory
+.Trash-*
+.nfs*
+
+# ══════════════════════════════════════════════════════════════════════
+#  DATABASES
+# ══════════════════════════════════════════════════════════════════════
+
+# SQLite
+*.db
+*.sqlite
+*.sqlite3
+
+# MongoDB
+*.bson
+
+# ══════════════════════════════════════════════════════════════════════
+#  LOGS & TEMPORARY FILES
+# ══════════════════════════════════════════════════════════════════════
 
 # Logs
 *.log
+logs/
+*.log.*
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
 
-# Editor
-.vscode/
-.idea/
+# Temporary files
+*.tmp
+*.temp
+*.bak
+*.backup
+*.old
+
+# ══════════════════════════════════════════════════════════════════════
+#  PROJECT SPECIFIC
+# ══════════════════════════════════════════════════════════════════════
+
+# Claude Code temporary files
+.claude/
+
+# Uploaded files (if you store user uploads locally)
+uploads/
+media/
+
+# Static file cache
+staticfiles/
+static_root/
