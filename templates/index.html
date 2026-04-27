@@ -39,7 +39,7 @@
   {% if items %}
   <div class="product-grid">
     {% for item in items %}
-    <article class="product-card">
+    <article class="product-card" data-index="{{ loop.index0 }}">
       <a href="{{ url_for('public.item_detail', item_id=item['_id']) }}" class="card-image-link">
         <div class="card-image-wrap">
           <img src="{{ item.get('image_url', 'https://picsum.photos/640/400') }}"
@@ -98,6 +98,31 @@
 
 {% block extra_js %}
 <script>
+  // Scroll-triggered fade-in animation for product cards
+  const productCards = document.querySelectorAll('.product-card');
+
+  const observer = new IntersectionObserver((entries) => {
+    entries.forEach(entry => {
+      if (entry.isIntersecting) {
+        const card = entry.target;
+        const index = parseInt(card.dataset.index);
+        const delay = index * 0.08; // 80ms stagger per item
+
+        // Set transition delay and trigger animation
+        card.style.transitionDelay = delay + 's';
+        card.classList.add('is-visible');
+
+        // Stop observing once visible
+        observer.unobserve(card);
+      }
+    });
+  }, {
+    threshold: 0.1, // trigger when 10% of card is visible
+    rootMargin: '0px 0px -50px 0px' // trigger slightly before fully in view
+  });
+
+  productCards.forEach(card => observer.observe(card));
+
   // Add to cart functionality
   document.querySelectorAll('.btn-add-cart').forEach(btn => {
     btn.addEventListener('click', async (e) => {
