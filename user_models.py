@@ -203,6 +203,30 @@ def get_all_orders() -> list:
     return orders
 
 
+def update_user(user_id: str, email: str, password_hash: str = None, is_verified: bool = None) -> bool:
+    updates = {"email": email.lower().strip(), "updated_at": datetime.utcnow()}
+    if password_hash is not None:
+        updates["password_hash"] = password_hash
+    if is_verified is not None:
+        updates["is_verified"] = is_verified
+    try:
+        result = users_collection.update_one(
+            {"_id": ObjectId(user_id)},
+            {"$set": updates}
+        )
+        return result.modified_count > 0
+    except Exception:
+        return False
+
+
+def delete_user(user_id: str) -> bool:
+    try:
+        result = users_collection.delete_one({"_id": ObjectId(user_id)})
+        return result.deleted_count > 0
+    except Exception:
+        return False
+
+
 def update_order_status(order_id: str, status: str) -> bool:
     """
     Update the status of an order (admin function).
