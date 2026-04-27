@@ -13,6 +13,7 @@
 
   <div class="form-card" data-animate>
     <form method="POST" id="itemForm">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
 
       <!-- Name -->
       <div class="form-group">
