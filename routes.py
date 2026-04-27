@@ -21,13 +21,15 @@ import json
 from auth   import login_required, check_password
 from models import (
     get_all_items, get_item_by_id, get_all_categories,
+    get_all_categories_with_ids, get_or_create_category,
     create_item, update_item, delete_item, fetch_image, decrement_stock
 )
 from user_auth import user_login_required, get_current_user
 from user_models import (
     create_user, get_user_by_email, verify_user_email,
     get_user_orders, get_order_by_id, create_order,
-    get_all_users_with_stats, get_all_orders
+    get_all_users_with_stats, get_all_orders,
+    update_user, delete_user
 )
 from cart_helpers import (
     add_to_cart as cart_add, remove_from_cart,
@@ -154,7 +156,7 @@ def new_item():
         create_item(
             name           = request.form.get("name", "").strip(),
             description    = request.form.get("description", "").strip(),
-            category       = request.form.get("category", "").strip(),
+            category_id    = request.form.get("category_id", "").strip(),
             price          = float(request.form.get("price", 0)),
             stock          = int(request.form.get("stock", 0)),
             image_url      = request.form.get("image_url", "").strip(),
@@ -188,7 +190,7 @@ def edit_item(item_id):
             item_id        = item_id,
             name           = request.form.get("name", "").strip(),
             description    = request.form.get("description", "").strip(),
-            category       = request.form.get("category", "").strip(),
+            category_id    = request.form.get("category_id", "").strip(),
             price          = float(request.form.get("price", 0)),
             stock          = int(request.form.get("stock", 0)),
             image_url      = request.form.get("image_url", "").strip(),
@@ -209,7 +211,9 @@ def refresh_image(item_id):
         return "Item not found", 404
     new_url = fetch_image(item["name"], item.get("description", ""))
     update_item(item_id, item["name"], item.get("description", ""),
-                item.get("category", ""), item["price"], item["stock"], new_url)
+                item.get("category_id", ""), item["price"], item["stock"], new_url,
+                colors_enabled=item.get("colors_enabled", False),
+                colors=item.get("colors", []))
     return redirect(url_for("admin.dashboard"))
 
 
@@ -228,21 +232,33 @@ def delete_item_route(item_id):
 @api_bp.route("/api/fetch-image")
 @login_required
 def api_fetch_image():
-    """
-    AJAX endpoint used by the admin form's "Auto-fetch" button.
-    Calls Unsplash (or fallback) and returns the image URL as JSON.
-
-    Query params:
-        name        — product name
-        description — product description
-
-    Response:
-        { "image_url": "https://..." }
-    """
     name        = request.args.get("name", "")
     description = request.args.get("description", "")
-    image_url   = fetch_image(name, description)       # from models.py
+    image_url   = fetch_image(name, description)
     return jsonify({"image_url": image_url})
+
+
+@api_bp.route("/api/categories", methods=["GET"])
+@login_required
+def api_get_categories():
+    """Return all categories as [{id, name}] sorted by name."""
+    return jsonify(get_all_categories_with_ids())
+
+
+@api_bp.route("/api/categories", methods=["POST"])
+@login_required
+def api_create_category():
+    """
+    Case-insensitive find-or-create a category.
+    Body: { "name": "..." }
+    Returns: { "id": "...", "name": "..." }
+    """
+    data = request.get_json(silent=True) or {}
+    name = (data.get("name") or "").strip()
+    if not name:
+        return jsonify({"error": "name is required"}), 400
+    category = get_or_create_category(name)
+    return jsonify(category), 201
 
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -556,6 +572,64 @@ def admin_user_detail(user_id):
     total_spent = sum(order.get("total", 0) for order in orders)
 
     return render_template("admin_user_detail.html", user=user, orders=orders, total_spent=total_spent)
+
+
+@admin_bp.route("/admin/users/new", methods=["GET", "POST"])
+@login_required
+def admin_add_user():
+    error = None
+    if request.method == "POST":
+        email    = request.form.get("email", "").strip().lower()
+        password = request.form.get("password", "").strip()
+        is_verified = request.form.get("is_verified") == "1"
+
+        if not email or not password:
+            error = "Email and password are required."
+        elif get_user_by_email(email):
+            error = "A user with this email already exists."
+        else:
+            from app import bcrypt
+            password_hash = bcrypt.generate_password_hash(password).decode("utf-8")
+            user_id = create_user(email, password_hash)
+            if is_verified:
+                update_user(user_id, email, is_verified=True)
+            return redirect(url_for("admin.admin_users"))
+
+    return render_template("admin_user_form.html", action="Add", user=None, error=error)
+
+
+@admin_bp.route("/admin/users/<user_id>/edit", methods=["GET", "POST"])
+@login_required
+def admin_edit_user(user_id):
+    from user_models import get_user_by_id
+    user = get_user_by_id(user_id)
+    if not user:
+        return "User not found", 404
+
+    error = None
+    if request.method == "POST":
+        email       = request.form.get("email", "").strip().lower()
+        password    = request.form.get("password", "").strip()
+        is_verified = request.form.get("is_verified") == "1"
+
+        if not email:
+            error = "Email is required."
+        else:
+            password_hash = None
+            if password:
+                from app import bcrypt
+                password_hash = bcrypt.generate_password_hash(password).decode("utf-8")
+            update_user(user_id, email, password_hash=password_hash, is_verified=is_verified)
+            return redirect(url_for("admin.admin_users"))
+
+    return render_template("admin_user_form.html", action="Edit", user=user, error=error)
+
+
+@admin_bp.route("/admin/users/<user_id>/delete", methods=["POST"])
+@login_required
+def admin_delete_user(user_id):
+    delete_user(user_id)
+    return redirect(url_for("admin.admin_users"))
 
 
 @admin_bp.route("/admin/orders")
