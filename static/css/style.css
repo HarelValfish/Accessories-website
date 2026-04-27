@@ -317,6 +317,25 @@ img { max-width: 100%; display: block; }
   transition: background var(--transition);
 }
 .btn-delete:hover { background: rgba(239,68,68,0.2); }
+.btn-secondary {
+  display: inline-block;
+  background: var(--bg-2);
+  color: var(--text-muted);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 0.65rem 1.25rem;
+  font-family: var(--font-head);
+  font-weight: 700;
+  font-size: 0.9rem;
+  cursor: pointer;
+  transition: border-color var(--transition), color var(--transition), background var(--transition);
+  letter-spacing: 0.02em;
+}
+.btn-secondary:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+  background: rgba(255,106,0,0.06);
+}
 .btn-cancel {
   display: inline-block;
   color: var(--text-muted);
