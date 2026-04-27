@@ -46,6 +46,19 @@ def send_order_confirmation(email: str, order: dict):
         for item in order["items"]
     )
 
+    addr = order.get("shipping_address", {})
+    shipping_html = f"""
+      <div style="margin:1.5rem 0;padding:1rem;background:#f9f9f9;border-radius:8px;border-left:3px solid #ff6a00">
+        <p style="margin:0 0 0.5rem;font-weight:600;color:#333">Shipping To</p>
+        <p style="margin:0;color:#555;line-height:1.6">
+          {addr.get('name', '')}<br>
+          {addr.get('address', '')}<br>
+          {addr.get('city', '')}, {addr.get('state', '')} {addr.get('zip', '')}<br>
+          {addr.get('country', '')}
+        </p>
+      </div>
+    """ if addr else ""
+
     msg = Message(
         subject=f"Order Confirmed — {order['order_number']}",
         recipients=[email],
@@ -64,12 +77,13 @@ def send_order_confirmation(email: str, order: dict):
             </thead>
             <tbody>{items_html}</tbody>
             <tfoot>
-              <tr>
+              <tr style="border-top:2px solid #eee">
                 <td colspan="2" style="padding:8px 12px;font-weight:600">Total</td>
                 <td style="padding:8px 12px;text-align:right;font-weight:600">${order['total']:.2f}</td>
               </tr>
             </tfoot>
           </table>
+          {shipping_html}
           <p style="color:#888;font-size:0.85rem">Thank you for shopping at TechDen!</p>
         </div>
         """,
