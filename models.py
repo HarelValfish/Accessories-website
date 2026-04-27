@@ -3,23 +3,22 @@ models.py
 ─────────
 Contains all data-layer logic:
   - Item CRUD operations (create, read, update, delete)
+  - Category CRUD with get-or-create
   - Image auto-fetch via Unsplash API
   - Demo data seeding
   - ObjectId serialization helper
-
-No Flask imports here — this file is purely about data, not HTTP.
 """
 
 import os
+import re
 import requests
 from bson import ObjectId
 from datetime import datetime
 from ddgs import DDGS
 
-from database import items_collection  # import the shared collection
+from database import items_collection, categories_collection
 
 
-# ── Unsplash API key (optional — set UNSPLASH_ACCESS_KEY in your .env file) ────
 UNSPLASH_ACCESS_KEY = os.environ.get("UNSPLASH_ACCESS_KEY", "")
 
 
@@ -28,68 +27,107 @@ UNSPLASH_ACCESS_KEY = os.environ.get("UNSPLASH_ACCESS_KEY", "")
 # ══════════════════════════════════════════════════════════════════════════════
 
 def serialize_item(item: dict) -> dict:
-    """Convert MongoDB ObjectId to a plain string so it can be used in templates/JSON."""
+    """Convert ObjectId fields to strings so they can be used in templates/JSON."""
     if item and "_id" in item:
-        item["_id"] = str(item["_id"])  # ObjectId → string
+        item["_id"] = str(item["_id"])
+    if item and item.get("category_id"):
+        item["category_id"] = str(item["category_id"])
     return item
 
 
 # ══════════════════════════════════════════════════════════════════════════════
-#  READ
+#  READ — ITEMS
 # ══════════════════════════════════════════════════════════════════════════════
 
 def get_all_items(category: str = "", search: str = "") -> list:
-    """
-    Fetch all items from MongoDB, with optional category filter and text search.
-    Returns a list of plain dicts (ObjectIds already converted to strings).
-    """
     query = {}
-
     if category:
-        query["category"] = category  # exact match on category field
-
+        query["category"] = category
     if search:
-        # Case-insensitive regex search across name and description
         query["$or"] = [
             {"name":        {"$regex": search, "$options": "i"}},
             {"description": {"$regex": search, "$options": "i"}},
         ]
-
-    items = list(items_collection.find(query))  # run the query
-    return [serialize_item(item) for item in items]  # serialize every item
+    items = list(items_collection.find(query))
+    return [serialize_item(item) for item in items]
 
 
 def get_item_by_id(item_id: str) -> dict | None:
-    """
-    Fetch a single item by its string ID.
-    Returns None if the ID is invalid or the item doesn't exist.
-    """
     try:
-        item = items_collection.find_one({"_id": ObjectId(item_id)})  # convert str → ObjectId
+        item = items_collection.find_one({"_id": ObjectId(item_id)})
         return serialize_item(item) if item else None
     except Exception:
-        return None  # invalid ObjectId format
+        return None
 
 
 def get_all_categories() -> list:
-    """Return a sorted list of unique category strings."""
+    """Return sorted list of category name strings (for storefront filter pills)."""
+    cats = list(categories_collection.find({}, {"name": 1}).sort("name", 1))
+    if cats:
+        return [c["name"] for c in cats]
+    # Fallback for existing deployments without categories collection
     return sorted(items_collection.distinct("category"))
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+#  CATEGORIES
+# ══════════════════════════════════════════════════════════════════════════════
+
+def get_all_categories_with_ids() -> list:
+    """Return all categories as [{id, name}] sorted by name."""
+    cats = list(categories_collection.find({}, {"name": 1}).sort("name", 1))
+    return [{"id": str(c["_id"]), "name": c["name"]} for c in cats]
+
+
+def get_or_create_category(name: str) -> dict:
+    """
+    Case-insensitive find-or-create.
+    Returns {"id": str, "name": str}.
+    """
+    name = name.strip()
+    existing = categories_collection.find_one(
+        {"name": {"$regex": f"^{re.escape(name)}$", "$options": "i"}}
+    )
+    if existing:
+        return {"id": str(existing["_id"]), "name": existing["name"]}
+    result = categories_collection.insert_one({"name": name})
+    return {"id": str(result.inserted_id), "name": name}
+
+
+def _resolve_category(category_id: str) -> tuple:
+    """
+    Look up a category by its string ID.
+    Returns (ObjectId | None, name_str).
+    """
+    if not category_id:
+        return None, ""
+    try:
+        oid = ObjectId(category_id)
+        cat = categories_collection.find_one({"_id": oid})
+        if cat:
+            return oid, cat["name"]
+    except Exception:
+        pass
+    return None, ""
 
 
 # ══════════════════════════════════════════════════════════════════════════════
 #  CREATE
 # ══════════════════════════════════════════════════════════════════════════════
 
-def create_item(name: str, description: str, category: str,
+def create_item(name: str, description: str, category_id: str,
                 price: float, stock: int, image_url: str,
                 colors_enabled: bool = False, colors: list = None) -> str:
     if not image_url:
         image_url = fetch_image(name, description)
 
+    cat_oid, category_name = _resolve_category(category_id)
+
     document = {
         "name":           name,
         "description":    description,
-        "category":       category,
+        "category_id":    cat_oid,
+        "category":       category_name,
         "price":          float(price),
         "stock":          int(stock),
         "image_url":      image_url,
@@ -106,16 +144,19 @@ def create_item(name: str, description: str, category: str,
 #  UPDATE
 # ══════════════════════════════════════════════════════════════════════════════
 
-def update_item(item_id: str, name: str, description: str, category: str,
+def update_item(item_id: str, name: str, description: str, category_id: str,
                 price: float, stock: int, image_url: str,
                 colors_enabled: bool = False, colors: list = None) -> bool:
     if not image_url:
         image_url = fetch_image(name, description)
 
+    cat_oid, category_name = _resolve_category(category_id)
+
     updates = {
         "name":           name,
         "description":    description,
-        "category":       category,
+        "category_id":    cat_oid,
+        "category":       category_name,
         "price":          float(price),
         "stock":          int(stock),
         "image_url":      image_url,
@@ -157,15 +198,11 @@ def decrement_stock(item_id: str, quantity: int) -> bool:
 # ══════════════════════════════════════════════════════════════════════════════
 
 def delete_item(item_id: str) -> bool:
-    """
-    Delete an item by its string ID.
-    Returns True if a document was deleted, False otherwise.
-    """
     try:
         result = items_collection.delete_one({"_id": ObjectId(item_id)})
-        return result.deleted_count > 0  # True if item was found and removed
+        return result.deleted_count > 0
     except Exception:
-        return False  # invalid ID format or not found
+        return False
 
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -173,17 +210,8 @@ def delete_item(item_id: str) -> bool:
 # ══════════════════════════════════════════════════════════════════════════════
 
 def fetch_image(name: str, description: str) -> str:
-    """
-    Fetch a relevant product image URL for the given item name + description.
-
-    Priority:
-      1. Unsplash API  — if UNSPLASH_ACCESS_KEY is set in .env
-      2. DuckDuckGo image search — free, no API key required
-      3. picsum.photos placeholder — last resort fallback
-    """
     query = f"{name} computer accessory product"
 
-    # ── 1. Unsplash (optional, higher quality) ─────────────────────────────────
     if UNSPLASH_ACCESS_KEY and UNSPLASH_ACCESS_KEY != "your_unsplash_access_key_here":
         try:
             response = requests.get(
@@ -202,7 +230,6 @@ def fetch_image(name: str, description: str) -> str:
         except Exception as e:
             print(f"[models] Unsplash fetch failed: {e}")
 
-    # ── 2. DuckDuckGo image search (free, no API key) ──────────────────────────
     try:
         with DDGS() as ddgs:
             results = list(ddgs.images(query, max_results=5))
@@ -213,7 +240,6 @@ def fetch_image(name: str, description: str) -> str:
     except Exception as e:
         print(f"[models] DuckDuckGo image fetch failed: {e}")
 
-    # ── 3. Fallback placeholder ────────────────────────────────────────────────
     seed = abs(hash(name)) % 1000
     return f"https://picsum.photos/seed/{seed}/640/400"
 
@@ -223,28 +249,31 @@ def fetch_image(name: str, description: str) -> str:
 # ══════════════════════════════════════════════════════════════════════════════
 
 def seed_demo_data():
-    """
-    Insert 8 sample items into MongoDB if the collection is empty.
-    Called once when the app starts — safe to leave in production,
-    it checks first before inserting anything.
-    """
     if items_collection.count_documents({}) > 0:
-        return  # collection already has data — do nothing
+        return
+
+    demo_category_names = [
+        "Adapters", "Cables", "Desk Accessories",
+        "Laptop Accessories", "Gadgets", "Input Devices",
+    ]
+    cat_map = {name: get_or_create_category(name) for name in demo_category_names}
 
     demo_items = [
-        {"name": "USB-C Hub 7-in-1",          "description": "Multiport adapter with HDMI, USB 3.0, SD card reader, PD charging",          "category": "Adapters",         "price": 39.99, "stock": 42},
-        {"name": "DisplayPort to HDMI Cable",  "description": "4K 60Hz DP to HDMI cable, 6ft braided nylon",                                 "category": "Cables",           "price": 14.99, "stock": 88},
-        {"name": "Wireless Mouse Pad XL",      "description": "Extra-large desk pad with Qi wireless charging zone",                         "category": "Desk Accessories", "price": 29.99, "stock": 35},
-        {"name": "Laptop Stand Aluminum",      "description": "Adjustable height aluminum laptop riser, foldable and ergonomic",             "category": "Laptop Accessories","price": 49.99, "stock": 20},
-        {"name": "Mini LED Desk Light",        "description": "USB-powered LED lamp with touch dimmer and color temperature control",        "category": "Gadgets",          "price": 22.99, "stock": 60},
-        {"name": "Cable Management Kit",       "description": "Velcro ties, clips and sleeves for a clean desk setup",                       "category": "Cables",           "price":  9.99, "stock":150},
-        {"name": "Mechanical Keyboard TKL",    "description": "Tenkeyless mechanical keyboard with blue switches and RGB backlight",          "category": "Input Devices",    "price": 79.99, "stock": 15},
-        {"name": "Webcam 1080p HD",            "description": "Full HD webcam with built-in noise-cancelling microphone, plug and play",     "category": "Gadgets",          "price": 59.99, "stock": 28},
+        {"name": "USB-C Hub 7-in-1",         "description": "Multiport adapter with HDMI, USB 3.0, SD card reader, PD charging",         "category": "Adapters",          "price": 39.99, "stock": 42},
+        {"name": "DisplayPort to HDMI Cable", "description": "4K 60Hz DP to HDMI cable, 6ft braided nylon",                               "category": "Cables",            "price": 14.99, "stock": 88},
+        {"name": "Wireless Mouse Pad XL",     "description": "Extra-large desk pad with Qi wireless charging zone",                       "category": "Desk Accessories",  "price": 29.99, "stock": 35},
+        {"name": "Laptop Stand Aluminum",     "description": "Adjustable height aluminum laptop riser, foldable and ergonomic",           "category": "Laptop Accessories","price": 49.99, "stock": 20},
+        {"name": "Mini LED Desk Light",       "description": "USB-powered LED lamp with touch dimmer and color temperature control",      "category": "Gadgets",           "price": 22.99, "stock": 60},
+        {"name": "Cable Management Kit",      "description": "Velcro ties, clips and sleeves for a clean desk setup",                     "category": "Cables",            "price":  9.99, "stock":150},
+        {"name": "Mechanical Keyboard TKL",   "description": "Tenkeyless mechanical keyboard with blue switches and RGB backlight",        "category": "Input Devices",     "price": 79.99, "stock": 15},
+        {"name": "Webcam 1080p HD",           "description": "Full HD webcam with built-in noise-cancelling microphone, plug and play",   "category": "Gadgets",           "price": 59.99, "stock": 28},
     ]
 
     for item in demo_items:
-        item["image_url"]  = fetch_image(item["name"], item["description"])
-        item["created_at"] = datetime.utcnow()
+        cat = cat_map.get(item["category"], {})
+        item["category_id"] = ObjectId(cat["id"]) if cat.get("id") else None
+        item["image_url"]   = fetch_image(item["name"], item["description"])
+        item["created_at"]  = datetime.utcnow()
 
     items_collection.insert_many(demo_items)
     print("✅ [models] Demo data seeded into MongoDB.")
