@@ -132,6 +132,27 @@ def update_item(item_id: str, name: str, description: str, category: str,
 
 
 # ══════════════════════════════════════════════════════════════════════════════
+#  STOCK
+# ══════════════════════════════════════════════════════════════════════════════
+
+def decrement_stock(item_id: str, quantity: int) -> bool:
+    """
+    Atomically reduce an item's stock by quantity.
+    The filter `stock >= quantity` ensures the update is skipped if stock
+    was already exhausted between validation and order creation.
+    Returns True if the decrement happened, False if stock was insufficient.
+    """
+    try:
+        result = items_collection.update_one(
+            {"_id": ObjectId(item_id), "stock": {"$gte": quantity}},
+            {"$inc": {"stock": -quantity}},
+        )
+        return result.modified_count > 0
+    except Exception:
+        return False
+
+
+# ══════════════════════════════════════════════════════════════════════════════
 #  DELETE
 # ══════════════════════════════════════════════════════════════════════════════
 
