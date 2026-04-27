@@ -33,9 +33,20 @@
           <td style="white-space:nowrap">{{ order.created_at.strftime('%b %d, %Y %I:%M %p') }}</td>
           <td style="white-space:nowrap">{{ order['items']|length }}</td>
           <td style="white-space:nowrap">${{ "%.2f"|format(order.total) }}</td>
-          <td style="white-space:nowrap"><span class="status-badge status-{{ order.status }}">{{ order.status|capitalize }}</span></td>
-          <td class="actions-cell">
-            <a href="{{ url_for('user.order_detail', order_id=order._id) }}" class="btn-edit">View</a>
+          <td style="white-space:nowrap">
+            <form method="POST" action="{{ url_for('admin.admin_update_order_status', order_id=order._id) }}">
+              <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+              <select name="status" class="status-select status-select--{{ order.status }}" onchange="this.form.submit()">
+                {% for s in ['pending', 'confirmed', 'shipped', 'delivered'] %}
+                <option value="{{ s }}" {% if order.status == s %}selected{% endif %}>{{ s|capitalize }}</option>
+                {% endfor %}
+              </select>
+            </form>
+          </td>
+          <td>
+            <div class="actions-cell">
+              <a href="{{ url_for('user.order_detail', order_id=order._id) }}" class="btn-edit">View</a>
+            </div>
           </td>
         </tr>
         {% endfor %}

@@ -453,8 +453,9 @@ body.login-page {
 .stat-val { font-family: var(--font-head); font-size: 2.2rem; font-weight: 800; color: var(--accent); }
 
 /* ── ADMIN TABLE ────────────────────────────────────────────────────── */
-.table-wrap { overflow-x: auto; border: 1px solid var(--border); border-radius: 12px; }
-.admin-table { width: 100%; border-collapse: collapse; font-size: 0.88rem; }
+.table-wrap,
+.table-card { overflow: hidden; border: 1px solid var(--border); border-radius: 12px; }
+.admin-table { width: 100%; border-collapse: separate; border-spacing: 0; font-size: 0.88rem; }
 .admin-table th {
   padding: 0.85rem 1rem;
   background: var(--bg-2);
@@ -480,11 +481,11 @@ body.login-page {
 .actions-cell { display: flex; gap: 0.4rem; align-items: center; white-space: nowrap; }
 .actions-cell .btn-edit,
 .actions-cell .btn-delete {
-  width: 72px;
   height: 32px;
+  padding: 0 1rem;
   text-align: center;
-  padding: 0;
   line-height: 32px;
+  white-space: nowrap;
   box-sizing: border-box;
 }
 .text-muted { color: var(--text-muted); }
@@ -891,22 +892,19 @@ body.login-page {
 .admin-table tbody tr:nth-child(9)  { animation-delay: 0.45s; }
 .admin-table tbody tr:nth-child(10) { animation-delay: 0.50s; }
 
-/* ── Admin table column widths — keeps columns locked in place ─────── */
-.admin-table th:nth-child(1),
-.admin-table td:nth-child(1) { width: 80px; }   /* Image */
-.admin-table th:nth-child(2),
-.admin-table td:nth-child(2) { width: 120px; }  /* Item ID */
-.admin-table th:nth-child(4),
-.admin-table td:nth-child(4) { width: 160px; }  /* Category */
-.admin-table th:nth-child(5),
-.admin-table td:nth-child(5) { width: 90px; }   /* Price */
-.admin-table th:nth-child(6),
-.admin-table td:nth-child(6) { width: 70px; text-align: center; }  /* Stock */
-.admin-table th:nth-child(7),
-.admin-table td:nth-child(7) { width: 160px; }  /* Actions */
-
-/* Keep actions cell from wrapping */
-.admin-table td:nth-child(4) { white-space: nowrap; }
+/* ── Inventory table column widths (dashboard only) ─────────────────── */
+.admin-table--inv th:nth-child(1),
+.admin-table--inv td:nth-child(1) { width: 80px; }
+.admin-table--inv th:nth-child(2),
+.admin-table--inv td:nth-child(2) { width: 120px; }
+.admin-table--inv th:nth-child(4),
+.admin-table--inv td:nth-child(4) { width: 160px; white-space: nowrap; }
+.admin-table--inv th:nth-child(5),
+.admin-table--inv td:nth-child(5) { width: 90px; }
+.admin-table--inv th:nth-child(6),
+.admin-table--inv td:nth-child(6) { width: 70px; text-align: center; }
+.admin-table--inv th:nth-child(7),
+.admin-table--inv td:nth-child(7) { width: 180px; }
 
 /* ── Shimmer on card images while loading ───────────────────────────── */
 .card-image-wrap {
@@ -1689,6 +1687,27 @@ body.login-page {
   display: flex;
   gap: 0.75rem;
 }
+
+/* ── Order Status Dropdown (admin) ──────────────────────────────────── */
+.status-select {
+  background: var(--bg-3);
+  border: 1px solid var(--border);
+  border-radius: 100px;
+  padding: 0.2rem 0.6rem;
+  font-size: 0.7rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  cursor: pointer;
+  outline: none;
+  appearance: none;
+  -webkit-appearance: none;
+}
+.status-select--pending   { background: rgba(255,153,0,0.15);  color: #ff9900;  border-color: rgba(255,153,0,0.3); }
+.status-select--confirmed { background: rgba(59,130,246,0.15); color: #60a5fa;  border-color: rgba(59,130,246,0.3); }
+.status-select--shipped   { background: rgba(139,92,246,0.15); color: #a78bfa;  border-color: rgba(139,92,246,0.3); }
+.status-select--delivered { background: rgba(34,197,94,0.15);  color: #4ade80;  border-color: rgba(34,197,94,0.3); }
+.status-select option { background: var(--bg-2); color: var(--text); text-transform: capitalize; }
 
 /* ── Add to Cart Button ─────────────────────────────────────────────── */
 .btn-add-cart {

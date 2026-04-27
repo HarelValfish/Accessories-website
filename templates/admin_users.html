@@ -36,7 +36,7 @@
         <tr>
           <th>Email</th>
           <th>Joined</th>
-          <th>Verified</th>
+          <th style="width:60px;text-align:center">Verified</th>
           <th>Orders</th>
           <th>Total Spent</th>
           <th>Last Order</th>
@@ -48,19 +48,21 @@
         <tr>
           <td>{{ user.email }}</td>
           <td style="white-space:nowrap">{{ user.created_at.strftime('%b %d, %Y') if user.created_at else 'N/A' }}</td>
-          <td style="white-space:nowrap">{% if user.is_verified %}<span class="status-verified">✓</span>{% else %}<span class="status-unverified">✗</span>{% endif %}</td>
+          <td style="text-align:center">{% if user.is_verified %}<span class="status-verified">✓</span>{% else %}<span class="status-unverified">✗</span>{% endif %}</td>
           <td style="white-space:nowrap">{{ user.order_count }}</td>
           <td style="white-space:nowrap">${{ "%.2f"|format(user.total_spent) }}</td>
           <td style="white-space:nowrap">{{ user.last_order_date.strftime('%b %d, %Y') if user.last_order_date else 'Never' }}</td>
-          <td class="actions-cell">
-            <a href="{{ url_for('admin.admin_user_detail', user_id=user._id) }}" class="btn-edit">View</a>
-            <a href="{{ url_for('admin.admin_edit_user', user_id=user._id) }}" class="btn-edit">Edit</a>
-            <form method="POST" action="{{ url_for('admin.admin_delete_user', user_id=user._id) }}"
-                  style="display:inline"
-                  onsubmit="return confirm('Delete {{ user.email }}? This cannot be undone.')">
-              <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
-              <button type="submit" class="btn-delete">Delete</button>
-            </form>
+          <td style="white-space:nowrap">
+            <div class="actions-cell">
+              <a href="{{ url_for('admin.admin_user_detail', user_id=user._id) }}" class="btn-edit">View</a>
+              <a href="{{ url_for('admin.admin_edit_user', user_id=user._id) }}" class="btn-edit">Edit</a>
+              <form method="POST" action="{{ url_for('admin.admin_delete_user', user_id=user._id) }}"
+                    style="display:inline"
+                    onsubmit="return confirm('Delete {{ user.email }}? This cannot be undone.')">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
+                <button type="submit" class="btn-delete">Delete</button>
+              </form>
+            </div>
           </td>
         </tr>
         {% endfor %}
