@@ -41,17 +41,18 @@ def create_app() -> Flask:
     # IMPORTANT: Set SECRET_KEY in your .env file before deploying.
     app.secret_key = os.environ.get("SECRET_KEY", "techden-dev-secret-key")
 
-    # ── Initialize extensions ──────────────────────────────────────────────────
-    bcrypt.init_app(app)  # password hashing
-    csrf.init_app(app)    # CSRF protection for forms
-    mail.init_app(app)    # email sending (mock mode initially)
-
-    # ── Email configuration (mock mode initially) ──────────────────────────────
+    # ── Email configuration ────────────────────────────────────────────────────
     app.config["MAIL_SERVER"] = os.environ.get("MAIL_SERVER", "localhost")
     app.config["MAIL_PORT"] = int(os.environ.get("MAIL_PORT", 25))
     app.config["MAIL_USE_TLS"] = os.environ.get("MAIL_USE_TLS", "False") == "True"
     app.config["MAIL_USERNAME"] = os.environ.get("MAIL_USERNAME")
     app.config["MAIL_PASSWORD"] = os.environ.get("MAIL_PASSWORD")
+    app.config["MAIL_DEFAULT_SENDER"] = os.environ.get("MAIL_DEFAULT_SENDER")
+
+    # ── Initialize extensions ──────────────────────────────────────────────────
+    bcrypt.init_app(app)  # password hashing
+    csrf.init_app(app)    # CSRF protection for forms
+    mail.init_app(app)    # must come after MAIL_* config is set
 
     # ── Register Blueprints ────────────────────────────────────────────────────
     # Each blueprint groups a set of related routes together.
