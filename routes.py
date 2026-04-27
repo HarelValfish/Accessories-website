@@ -21,7 +21,7 @@ import json
 from auth   import login_required, check_password
 from models import (
     get_all_items, get_item_by_id, get_all_categories,
-    create_item, update_item, delete_item, fetch_image
+    create_item, update_item, delete_item, fetch_image, decrement_stock
 )
 from user_auth import user_login_required, get_current_user
 from user_models import (
@@ -465,6 +465,10 @@ def checkout():
         order_number = generate_order_number()
         user_id = session["user_id"]
         order_id = create_order(user_id, cart, shipping_address, order_number)
+
+        # Deduct purchased quantities from inventory
+        for cart_item in cart:
+            decrement_stock(cart_item["item_id"], cart_item["quantity"])
 
         # Send confirmation email
         user = get_current_user()
