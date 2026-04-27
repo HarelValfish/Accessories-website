@@ -638,3 +638,13 @@ def admin_orders():
     """Admin view of all orders across all users."""
     orders = get_all_orders()
     return render_template("admin_orders.html", orders=orders)
+
+
+@admin_bp.route("/admin/orders/<order_id>/status", methods=["POST"])
+@login_required
+def admin_update_order_status(order_id):
+    from user_models import update_order_status
+    status = request.form.get("status", "").strip()
+    if status in ("pending", "confirmed", "shipped", "delivered"):
+        update_order_status(order_id, status)
+    return redirect(url_for("admin.admin_orders"))
