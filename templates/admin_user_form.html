@@ -1,0 +1,74 @@
+{% extends "base.html" %}
+{% block title %}{{ action }} User — TechDen Admin{% endblock %}
+
+{% block content %}
+<div class="admin-page">
+  <div class="admin-header">
+    <div>
+      <h1 class="admin-title">{{ action }} User</h1>
+      <p class="admin-sub">{% if action == 'Edit' %}Update account details. Leave password blank to keep the current one.{% else %}Create a new customer account.{% endif %}</p>
+    </div>
+    <a href="{{ url_for('admin.admin_users') }}" class="btn-edit">← Back to Users</a>
+  </div>
+
+  <div class="form-card" data-animate>
+    {% if error %}
+    <div class="alert alert-error" style="margin-bottom:1.25rem">{{ error }}</div>
+    {% endif %}
+
+    <form method="POST" id="userForm">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
+
+      <div class="form-group">
+        <label class="field-label" for="email">Email Address *</label>
+        <input type="email" id="email" name="email" class="field-input"
+               value="{{ user.email if user else '' }}"
+               placeholder="customer@example.com" required />
+      </div>
+
+      <div class="form-group">
+        <label class="field-label" for="password">
+          Password {% if action == 'Edit' %}<span style="font-weight:400;color:var(--muted)">(leave blank to keep current)</span>{% else %}*{% endif %}
+        </label>
+        <input type="password" id="password" name="password" class="field-input"
+               placeholder="{% if action == 'Edit' %}Enter new password…{% else %}Set a password…{% endif %}"
+               {% if action == 'Add' %}required{% endif %} />
+      </div>
+
+      <div class="form-group">
+        <div class="color-toggle-row">
+          <label class="field-label" style="margin:0">Email Verified</label>
+          <label class="toggle-switch">
+            <input type="checkbox" id="isVerifiedCheck"
+                   {% if user and user.get('is_verified') %}checked{% elif action == 'Add' %}checked{% endif %} />
+            <span class="toggle-slider"></span>
+          </label>
+          <span class="toggle-label" id="verifiedLabel">
+            {% if user and user.get('is_verified') %}Verified{% elif action == 'Add' %}Verified{% else %}Unverified{% endif %}
+          </span>
+        </div>
+        <input type="hidden" name="is_verified" id="isVerifiedInput"
+               value="{{ '1' if (user and user.get('is_verified')) or action == 'Add' else '0' }}" />
+      </div>
+
+      <div class="form-actions">
+        <button type="submit" class="btn-primary">{{ action }} User</button>
+        <a href="{{ url_for('admin.admin_users') }}" class="btn-cancel">Cancel</a>
+      </div>
+    </form>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+  const check = document.getElementById('isVerifiedCheck');
+  const input = document.getElementById('isVerifiedInput');
+  const label = document.getElementById('verifiedLabel');
+
+  check.addEventListener('change', () => {
+    input.value = check.checked ? '1' : '0';
+    label.textContent = check.checked ? 'Verified' : 'Unverified';
+  });
+</script>
+{% endblock %}

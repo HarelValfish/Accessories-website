@@ -12,6 +12,7 @@
   </div>
 
   <div class="table-card" data-animate>
+    <div style="overflow-x:auto">
     <table class="admin-table">
       <thead>
         <tr>
@@ -27,12 +28,12 @@
       <tbody>
         {% for order in orders %}
         <tr>
-          <td>{{ order.order_number }}</td>
+          <td style="white-space:nowrap">{{ order.order_number }}</td>
           <td>{{ order.user_email }}</td>
-          <td>{{ order.created_at.strftime('%b %d, %Y %I:%M %p') }}</td>
-          <td>{{ order['items']|length }}</td>
-          <td>${{ "%.2f"|format(order.total) }}</td>
-          <td><span class="status-badge status-{{ order.status }}">{{ order.status|capitalize }}</span></td>
+          <td style="white-space:nowrap">{{ order.created_at.strftime('%b %d, %Y %I:%M %p') }}</td>
+          <td style="white-space:nowrap">{{ order['items']|length }}</td>
+          <td style="white-space:nowrap">${{ "%.2f"|format(order.total) }}</td>
+          <td style="white-space:nowrap"><span class="status-badge status-{{ order.status }}">{{ order.status|capitalize }}</span></td>
           <td class="actions-cell">
             <a href="{{ url_for('user.order_detail', order_id=order._id) }}" class="btn-edit">View</a>
           </td>
@@ -40,6 +41,7 @@
         {% endfor %}
       </tbody>
     </table>
+    </div>
   </div>
 </div>
 {% endblock %}

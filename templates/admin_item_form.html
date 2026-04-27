@@ -30,12 +30,23 @@
                   placeholder="Describe the product…" required>{{ item['description'] if item else '' }}</textarea>
       </div>
 
-      <!-- Category -->
+      <!-- Category — searchable combobox -->
       <div class="form-group">
-        <label class="field-label" for="category">Category</label>
-        <input type="text" id="category" name="category" class="field-input"
-               value="{{ item['category'] if item else '' }}"
-               placeholder="e.g. Adapters, Cables, Gadgets…" />
+        <label class="field-label" for="catSearch">Category</label>
+        <div class="cat-combo" id="catCombo">
+          <input type="text" id="catSearch" class="field-input cat-combo__input"
+                 placeholder="Search or type to add a category…"
+                 autocomplete="off" />
+          <span class="cat-combo__check" id="catCheck">✓</span>
+          <div class="cat-combo__dropdown" id="catDropdown" hidden>
+            <div class="cat-combo__list" id="catList"></div>
+          </div>
+        </div>
+        <input type="hidden" name="category_id" id="categoryId"
+               value="{{ item.get('category_id', '') if item else '' }}" />
+        <p class="field-hint" id="catHint" style="display:none;color:var(--red)">
+          Please select or create a category before saving.
+        </p>
       </div>
 
       <!-- Price + Stock row -->
@@ -237,5 +248,176 @@
     colorPicker.style.display = on ? 'block' : 'none';
     toggleLabel.textContent   = on ? 'Enabled' : 'Disabled';
   });
+
+  // ── Category combobox ─────────────────────────────────────────────
+  const catSearch   = document.getElementById('catSearch');
+  const catDropdown = document.getElementById('catDropdown');
+  const catList     = document.getElementById('catList');
+  const catCombo    = document.getElementById('catCombo');
+  const categoryId  = document.getElementById('categoryId');
+  const catCheck    = document.getElementById('catCheck');
+  const catHint     = document.getElementById('catHint');
+
+  let allCategories = [];
+  let focusedIndex  = -1;
+
+  // Pre-fill display name from existing item (edit mode)
+  const prefilledName = {{ (item.get('category', '') if item else '') | tojson }};
+  if (prefilledName) catSearch.value = prefilledName;
+
+  function setSelected(id, name) {
+    categoryId.value = id;
+    catSearch.value  = name;
+    catCombo.classList.add('cat-combo--selected');
+    catCheck.style.opacity = '1';
+    catHint.style.display  = 'none';
+    closeDropdown();
+  }
+
+  function clearSelection() {
+    categoryId.value = '';
+    catCombo.classList.remove('cat-combo--selected');
+    catCheck.style.opacity = '0';
+  }
+
+  function closeDropdown() {
+    catDropdown.hidden = true;
+    focusedIndex = -1;
+  }
+
+  function renderList(query) {
+    const q       = query.trim().toLowerCase();
+    const matches = allCategories.filter(c => c.name.toLowerCase().includes(q));
+    const exact   = allCategories.some(c => c.name.toLowerCase() === q);
+
+    catList.innerHTML = '';
+    focusedIndex = -1;
+
+    if (q && !exact) {
+      const addOpt = document.createElement('div');
+      addOpt.className = 'cat-combo__option cat-combo__add';
+      addOpt.textContent = `Add "${query.trim()}"`;
+      addOpt.dataset.action = 'add';
+      addOpt.dataset.name   = query.trim();
+      catList.appendChild(addOpt);
+    }
+
+    matches.forEach(cat => {
+      const opt = document.createElement('div');
+      opt.className = 'cat-combo__option' +
+        (cat.id === categoryId.value ? ' cat-combo__option--active' : '');
+      opt.textContent  = cat.name;
+      opt.dataset.id   = cat.id;
+      opt.dataset.name = cat.name;
+      catList.appendChild(opt);
+    });
+
+    if (catList.children.length === 0) {
+      const empty = document.createElement('div');
+      empty.className   = 'cat-combo__empty';
+      empty.textContent = 'No categories yet — type to add one.';
+      catList.appendChild(empty);
+    }
+
+    catDropdown.hidden = false;
+  }
+
+  catList.addEventListener('click', async e => {
+    const opt = e.target.closest('.cat-combo__option');
+    if (!opt) return;
+    if (opt.dataset.action === 'add') {
+      await doCreate(opt.dataset.name);
+    } else {
+      setSelected(opt.dataset.id, opt.dataset.name);
+    }
+  });
+
+  async function doCreate(name) {
+    const csrfToken = document.querySelector('input[name="csrf_token"]').value;
+    try {
+      const res = await fetch('/api/categories', {
+        method:  'POST',
+        headers: { 'Content-Type': 'application/json', 'X-CSRFToken': csrfToken },
+        body:    JSON.stringify({ name }),
+      });
+      if (!res.ok) throw new Error();
+      const cat = await res.json();
+      if (!allCategories.find(c => c.id === cat.id)) {
+        allCategories.push(cat);
+        allCategories.sort((a, b) => a.name.localeCompare(b.name));
+      }
+      setSelected(cat.id, cat.name);
+    } catch {
+      alert('Could not create category. Please try again.');
+    }
+  }
+
+  catSearch.addEventListener('focus', () => renderList(catSearch.value));
+
+  catSearch.addEventListener('input', () => {
+    clearSelection();
+    renderList(catSearch.value);
+  });
+
+  // Keyboard navigation
+  catSearch.addEventListener('keydown', e => {
+    const opts = [...catList.querySelectorAll('.cat-combo__option')];
+    if (!opts.length) return;
+    if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      focusedIndex = Math.min(focusedIndex + 1, opts.length - 1);
+      opts.forEach((o, i) => o.classList.toggle('cat-combo__option--focused', i === focusedIndex));
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      focusedIndex = Math.max(focusedIndex - 1, 0);
+      opts.forEach((o, i) => o.classList.toggle('cat-combo__option--focused', i === focusedIndex));
+    } else if (e.key === 'Enter' && focusedIndex >= 0) {
+      e.preventDefault();
+      opts[focusedIndex].click();
+    } else if (e.key === 'Escape') {
+      closeDropdown();
+    }
+  });
+
+  document.addEventListener('click', e => {
+    if (!catCombo.contains(e.target)) closeDropdown();
+  });
+
+  // Guard: resolve on submit if text is filled but no ID selected
+  document.getElementById('itemForm').addEventListener('submit', async e => {
+    const name = catSearch.value.trim();
+    if (categoryId.value || !name) {
+      if (!name) { catHint.style.display = 'block'; e.preventDefault(); }
+      return;
+    }
+    e.preventDefault();
+    const match = allCategories.find(c => c.name.toLowerCase() === name.toLowerCase());
+    if (match) {
+      setSelected(match.id, match.name);
+    } else {
+      await doCreate(name);
+    }
+    document.getElementById('itemForm').submit();
+  });
+
+  // Load categories and pre-select existing value
+  async function loadCategories() {
+    try {
+      const res = await fetch('/api/categories');
+      allCategories = await res.json();
+    } catch { allCategories = []; }
+
+    // Match pre-filled name to an ID (edit mode / old items without category_id)
+    if (!categoryId.value && prefilledName) {
+      const match = allCategories.find(
+        c => c.name.toLowerCase() === prefilledName.toLowerCase()
+      );
+      if (match) setSelected(match.id, match.name);
+    } else if (categoryId.value) {
+      catCombo.classList.add('cat-combo--selected');
+      catCheck.style.opacity = '1';
+    }
+  }
+  loadCategories();
 </script>
 {% endblock %}
