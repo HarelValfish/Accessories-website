@@ -21,12 +21,14 @@ if not MONGO_URI:
 client = MongoClient(MONGO_URI, tlsCAFile=certifi.where())
 
 # ── Select the database and collections ────────────────────────────────────────
-db               = client["techden"]   # database name
-items_collection = db["items"]         # product inventory
-users_collection = db["users"]         # user accounts
-orders_collection = db["orders"]       # order history
+db                    = client["techden"]   # database name
+items_collection      = db["items"]         # product inventory
+users_collection      = db["users"]         # user accounts
+orders_collection     = db["orders"]        # order history
+categories_collection = db["categories"]    # product categories
 
 # ── Create indexes for performance and uniqueness ──────────────────────────────
-users_collection.create_index("email", unique=True)  # ensure unique emails
-orders_collection.create_index("user_id")            # fast user order lookup
-orders_collection.create_index("order_number", unique=True)  # unique order numbers
+users_collection.create_index("email", unique=True)
+orders_collection.create_index("user_id")
+orders_collection.create_index("order_number", unique=True)
+categories_collection.create_index("name")  # fast name lookup
