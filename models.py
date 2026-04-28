@@ -219,6 +219,8 @@ def fetch_images(name: str, description: str, count: int = 3) -> list[str]:
     query = f"{name} computer accessory product"
     urls: list[str] = []
 
+    print(f"[fetch_images] key loaded: {repr(UNSPLASH_ACCESS_KEY[:8])}..." if UNSPLASH_ACCESS_KEY else "[fetch_images] key is EMPTY")
+
     if UNSPLASH_ACCESS_KEY and UNSPLASH_ACCESS_KEY != "your_unsplash_access_key_here":
         try:
             response = requests.get(
@@ -231,8 +233,10 @@ def fetch_images(name: str, description: str, count: int = 3) -> list[str]:
                 },
                 timeout=5,
             )
+            print(f"[fetch_images] Unsplash status: {response.status_code}")
             results = response.json().get("results", [])
             urls = [r["urls"]["regular"] for r in results[:count]]
+            print(f"[fetch_images] Unsplash returned {len(urls)} URLs")
         except Exception as e:
             print(f"[models] Unsplash fetch failed: {e}")
 
