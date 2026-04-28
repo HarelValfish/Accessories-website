@@ -10,6 +10,7 @@ No database access here — auth is purely session-based.
 """
 
 import os
+from datetime import datetime, timedelta
 from functools import wraps
 from flask import session, redirect, url_for
 
@@ -39,11 +40,29 @@ def login_required(f):
         2. If not logged in → redirect to the login page.
         3. If logged in → run the original view function normally.
     """
+    TIMEOUT = timedelta(minutes=5)
+
     @wraps(f)  # preserve the original function's name and docstring
     def decorated_function(*args, **kwargs):
-        if not session.get("admin_logged_in"):  # check session flag
-            return redirect(url_for("auth.admin_login"))  # send to login page
-        return f(*args, **kwargs)  # user is authenticated — proceed
+        if not session.get("admin_logged_in"):
+            return redirect(url_for("auth.admin_login"))
+
+        # Check 5-minute inactivity timeout
+        last_seen_str = session.get("admin_last_seen")
+        if last_seen_str:
+            last_seen = datetime.fromisoformat(last_seen_str)
+            if datetime.utcnow() - last_seen > TIMEOUT:
+                session.pop("admin_logged_in", None)
+                session.pop("admin_last_seen", None)
+                return redirect(url_for("auth.admin_login", expired=1))
+        else:
+            # No timestamp recorded — treat as expired
+            session.pop("admin_logged_in", None)
+            return redirect(url_for("auth.admin_login", expired=1))
+
+        # Reset the timer on every admin page visit
+        session["admin_last_seen"] = datetime.utcnow().isoformat()
+        return f(*args, **kwargs)
     return decorated_function
 
 
