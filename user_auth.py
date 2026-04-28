@@ -8,7 +8,7 @@ Separate from admin authentication to maintain clear separation of concerns.
 import secrets
 from datetime import datetime, timedelta
 from functools import wraps
-from flask import session, redirect, url_for
+from flask import session, redirect, url_for, request
 from bson import ObjectId
 
 from database import users_collection
@@ -50,7 +50,7 @@ def user_login_required(f):
     @wraps(f)
     def decorated_function(*args, **kwargs):
         if "user_id" not in session:
-            return redirect(url_for("user.login"))
+            return redirect(url_for("user.login", next=request.path))
         return f(*args, **kwargs)
     return decorated_function
 
