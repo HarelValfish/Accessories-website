@@ -241,6 +241,26 @@ def headline_stats() -> dict:
     }
 
 
+def inventory_value() -> dict:
+    """Current stock value at retail price and at cost."""
+    retail_total = 0.0
+    cost_total   = 0.0
+    total_units  = 0
+    for item in items_collection.find({}, {"price": 1, "cost": 1, "stock": 1}):
+        stock  = int(item.get("stock", 0) or 0)
+        price  = float(item.get("price", 0) or 0)
+        cost   = float(item.get("cost", 0) or 0)
+        retail_total += price * stock
+        cost_total   += cost  * stock
+        total_units  += stock
+    return {
+        "retail": round(retail_total, 2),
+        "cost":   round(cost_total, 2),
+        "margin": round(retail_total - cost_total, 2),
+        "units":  total_units,
+    }
+
+
 def dashboard_payload() -> dict:
     """One call to assemble everything the analytics page needs."""
     return {
@@ -251,4 +271,5 @@ def dashboard_payload() -> dict:
         "best_day":         most_profitable_day(),
         "active_users":     most_active_users(6),
         "category_revenue": revenue_by_category(),
+        "inventory":        inventory_value(),
     }
