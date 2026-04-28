@@ -117,7 +117,8 @@ def _resolve_category(category_id: str) -> tuple:
 
 def create_item(name: str, description: str, category_id: str,
                 price: float, stock: int, image_url: str,
-                colors_enabled: bool = False, colors: list = None) -> str:
+                colors_enabled: bool = False, colors: list = None,
+                images: list = None, cost: float = 0.0) -> str:
     if not image_url:
         image_url = fetch_image(name, description)
 
@@ -129,8 +130,10 @@ def create_item(name: str, description: str, category_id: str,
         "category_id":    cat_oid,
         "category":       category_name,
         "price":          float(price),
+        "cost":           float(cost),
         "stock":          int(stock),
         "image_url":      image_url,
+        "images":         [u for u in (images or []) if u],
         "colors_enabled": colors_enabled,
         "colors":         colors or [],
         "created_at":     datetime.utcnow(),
@@ -146,7 +149,8 @@ def create_item(name: str, description: str, category_id: str,
 
 def update_item(item_id: str, name: str, description: str, category_id: str,
                 price: float, stock: int, image_url: str,
-                colors_enabled: bool = False, colors: list = None) -> bool:
+                colors_enabled: bool = False, colors: list = None,
+                images: list = None, cost: float = 0.0) -> bool:
     if not image_url:
         image_url = fetch_image(name, description)
 
@@ -158,8 +162,10 @@ def update_item(item_id: str, name: str, description: str, category_id: str,
         "category_id":    cat_oid,
         "category":       category_name,
         "price":          float(price),
+        "cost":           float(cost),
         "stock":          int(stock),
         "image_url":      image_url,
+        "images":         [u for u in (images or []) if u],
         "colors_enabled": colors_enabled,
         "colors":         colors or [],
         "updated_at":     datetime.utcnow(),
@@ -209,8 +215,9 @@ def delete_item(item_id: str) -> bool:
 #  IMAGE FETCH
 # ══════════════════════════════════════════════════════════════════════════════
 
-def fetch_image(name: str, description: str) -> str:
+def fetch_images(name: str, description: str, count: int = 3) -> list[str]:
     query = f"{name} computer accessory product"
+    urls: list[str] = []
 
     if UNSPLASH_ACCESS_KEY and UNSPLASH_ACCESS_KEY != "your_unsplash_access_key_here":
         try:
@@ -218,30 +225,39 @@ def fetch_image(name: str, description: str) -> str:
                 "https://api.unsplash.com/search/photos",
                 params={
                     "query":       query,
-                    "per_page":    1,
+                    "per_page":    count,
                     "orientation": "landscape",
                     "client_id":   UNSPLASH_ACCESS_KEY,
                 },
                 timeout=5,
             )
             results = response.json().get("results", [])
-            if results:
-                return results[0]["urls"]["regular"]
+            urls = [r["urls"]["regular"] for r in results[:count]]
         except Exception as e:
             print(f"[models] Unsplash fetch failed: {e}")
 
-    try:
-        with DDGS() as ddgs:
-            results = list(ddgs.images(query, max_results=5))
-            for r in results:
-                url = r.get("image", "")
-                if url and url.startswith("http"):
-                    return url
-    except Exception as e:
-        print(f"[models] DuckDuckGo image fetch failed: {e}")
+    if len(urls) < count:
+        try:
+            with DDGS() as ddgs:
+                results = list(ddgs.images(query, max_results=count * 2))
+                for r in results:
+                    url = r.get("image", "")
+                    if url and url.startswith("http") and url not in urls:
+                        urls.append(url)
+                    if len(urls) >= count:
+                        break
+        except Exception as e:
+            print(f"[models] DuckDuckGo image fetch failed: {e}")
 
-    seed = abs(hash(name)) % 1000
-    return f"https://picsum.photos/seed/{seed}/640/400"
+    while len(urls) < count:
+        seed = abs(hash(name + str(len(urls)))) % 1000
+        urls.append(f"https://picsum.photos/seed/{seed}/640/400")
+
+    return urls[:count]
+
+
+def fetch_image(name: str, description: str) -> str:
+    return fetch_images(name, description, count=1)[0]
 
 
 # ══════════════════════════════════════════════════════════════════════════════
