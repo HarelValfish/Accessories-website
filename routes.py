@@ -100,7 +100,9 @@ def admin_login():
         entered = request.form.get("password", "")  # read submitted password
 
         if check_password(entered):                        # validate in auth.py
+            from datetime import datetime
             session["admin_logged_in"] = True              # mark session as authenticated
+            session["admin_last_seen"] = datetime.utcnow().isoformat()  # start the 5-min timer
             return redirect(url_for("admin.dashboard"))    # go to admin dashboard
 
         error = "Incorrect password. Please try again."   # wrong password message
@@ -111,7 +113,8 @@ def admin_login():
 @auth_bp.route("/admin/logout")
 def admin_logout():
     """Clear the admin session and return to the storefront."""
-    session.pop("admin_logged_in", None)  # remove the session flag
+    session.pop("admin_logged_in", None)
+    session.pop("admin_last_seen", None)
     return redirect(url_for("public.index"))
 
 
@@ -259,7 +262,7 @@ def api_fetch_image():
 def api_fetch_images():
     name        = request.args.get("name", "")
     description = request.args.get("description", "")
-    images      = fetch_images(name, description, count=3)
+    images      = fetch_images(name, description, count=6)
     return jsonify({"images": images})
 
 
@@ -350,6 +353,10 @@ def login():
             from app import bcrypt
             if bcrypt.check_password_hash(user["password_hash"], password):
                 session["user_id"] = user["_id"]  # log user in
+                next_url = request.args.get("next", "")
+                # Only allow safe relative redirects (no open redirect)
+                if next_url and next_url.startswith("/") and not next_url.startswith("//"):
+                    return redirect(next_url)
                 return redirect(url_for("public.index"))
             else:
                 error = "Invalid email or password."
@@ -361,6 +368,7 @@ def login():
 def logout():
     """Clear user session and redirect to home."""
     session.pop("user_id", None)
+    session.pop("cart", None)
     return redirect(url_for("public.index"))
 
 
