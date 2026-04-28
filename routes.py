@@ -22,7 +22,7 @@ from auth   import login_required, check_password
 from models import (
     get_all_items, get_item_by_id, get_all_categories,
     get_all_categories_with_ids, get_or_create_category,
-    create_item, update_item, delete_item, fetch_image, decrement_stock
+    create_item, update_item, delete_item, fetch_image, fetch_images, decrement_stock
 )
 from user_auth import user_login_required, get_current_user
 from user_models import (
@@ -38,6 +38,7 @@ from cart_helpers import (
 )
 from email_service import send_verification_email, send_order_confirmation
 from order_generator import generate_order_number
+from analytics import record_item_view, dashboard_payload
 
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -79,6 +80,7 @@ def item_detail(item_id):
     item = get_item_by_id(item_id)  # fetch one item by ID
     if not item:
         return render_template("404.html"), 404  # show friendly 404 page
+    record_item_view(item_id, session.get("user_id"))
     return render_template("item_detail.html", item=item)
 
 
@@ -151,7 +153,11 @@ def new_item():
         try:
             colors = json.loads(request.form.get("colors_json", "[]"))
         except (json.JSONDecodeError, ValueError):
-            colors = []  # fallback to empty list if JSON is invalid
+            colors = []
+        try:
+            images = [u.strip() for u in json.loads(request.form.get("images_json", "[]")) if isinstance(u, str) and u.strip()]
+        except (json.JSONDecodeError, ValueError):
+            images = []
 
         create_item(
             name           = request.form.get("name", "").strip(),
@@ -162,6 +168,8 @@ def new_item():
             image_url      = request.form.get("image_url", "").strip(),
             colors_enabled = colors_enabled,
             colors         = colors,
+            images         = images,
+            cost           = float(request.form.get("cost", 0) or 0),
         )
         return redirect(url_for("admin.dashboard"))
 
@@ -184,7 +192,11 @@ def edit_item(item_id):
         try:
             colors = json.loads(request.form.get("colors_json", "[]"))
         except (json.JSONDecodeError, ValueError):
-            colors = []  # fallback to empty list if JSON is invalid
+            colors = []
+        try:
+            images = [u.strip() for u in json.loads(request.form.get("images_json", "[]")) if isinstance(u, str) and u.strip()]
+        except (json.JSONDecodeError, ValueError):
+            images = []
 
         update_item(
             item_id        = item_id,
@@ -196,6 +208,8 @@ def edit_item(item_id):
             image_url      = request.form.get("image_url", "").strip(),
             colors_enabled = colors_enabled,
             colors         = colors,
+            images         = images,
+            cost           = float(request.form.get("cost", 0) or 0),
         )
         return redirect(url_for("admin.dashboard"))
 
@@ -213,7 +227,9 @@ def refresh_image(item_id):
     update_item(item_id, item["name"], item.get("description", ""),
                 item.get("category_id", ""), item["price"], item["stock"], new_url,
                 colors_enabled=item.get("colors_enabled", False),
-                colors=item.get("colors", []))
+                colors=item.get("colors", []),
+                images=item.get("images", []),
+                cost=item.get("cost", 0.0))
     return redirect(url_for("admin.dashboard"))
 
 
@@ -236,6 +252,15 @@ def api_fetch_image():
     description = request.args.get("description", "")
     image_url   = fetch_image(name, description)
     return jsonify({"image_url": image_url})
+
+
+@api_bp.route("/api/fetch-images")
+@login_required
+def api_fetch_images():
+    name        = request.args.get("name", "")
+    description = request.args.get("description", "")
+    images      = fetch_images(name, description, count=3)
+    return jsonify({"images": images})
 
 
 @api_bp.route("/api/categories", methods=["GET"])
@@ -550,6 +575,13 @@ def order_detail(order_id):
 
 
 # ── Admin User Management Routes (added to admin blueprint) ────────────────────
+
+@admin_bp.route("/admin/analytics")
+@login_required
+def admin_analytics():
+    """Charts dashboard — sales, popularity, views, top users, etc."""
+    return render_template("admin_analytics.html", data=dashboard_payload())
+
 
 @admin_bp.route("/admin/users")
 @login_required
