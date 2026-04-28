@@ -55,6 +55,21 @@
   .best-day-card .amount { font-family: var(--font-head); font-size: 2.4rem; font-weight: 800; color: var(--accent); }
   .best-day-card .meta   { font-size: 0.8rem; color: var(--text-muted); margin-top: 0.4rem; }
 
+  .inventory-card {
+    grid-column: span 4;
+    background: linear-gradient(135deg, rgba(62,166,255,0.15), rgba(34,211,238,0.05));
+    border: 1px solid rgba(62,166,255,0.45);
+    border-radius: 14px;
+    padding: 1.25rem 1.4rem;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+  }
+  @media (max-width: 1100px) { .inventory-card { grid-column: span 12; } }
+  .inventory-card .label  { font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.12em; color: #22d3ee; }
+  .inventory-card .amount { font-family: var(--font-num); font-size: 2.4rem; font-weight: 800; color: #3ea6ff; margin: 0.4rem 0 0.6rem; }
+  .inventory-card .meta   { font-size: 0.8rem; color: var(--text-muted); margin-top: 0.4rem; }
+
   .empty-chart {
     display: flex; align-items: center; justify-content: center;
     height: 100%; color: var(--text-muted); font-size: 0.85rem; font-style: italic;
@@ -134,6 +149,15 @@
       {% else %}
         <div class="meta" style="margin-top:1rem">No sales data yet.</div>
       {% endif %}
+    </div>
+
+    <!-- Inventory value card -->
+    <div class="inventory-card" data-animate>
+      <span class="label">Current Inventory Value</span>
+      <div class="amount">${{ "%.2f"|format(data.inventory.retail) }}</div>
+      <div class="meta">{{ data.inventory.units }} units in stock</div>
+      <div class="meta">Cost basis: ${{ "%.2f"|format(data.inventory.cost) }}</div>
+      <div class="meta">Potential margin: ${{ "%.2f"|format(data.inventory.margin) }}</div>
     </div>
 
     <!-- Top sellers -->

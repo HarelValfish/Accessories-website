@@ -44,26 +44,15 @@
       {# Admin links (separate from user auth) #}
       {% if session.get('admin_logged_in') %}
         <a href="{{ url_for('admin.dashboard') }}" class="nav-link nav-admin-panel">Admin Panel</a>
+      {% else %}
+        <a href="{{ url_for('auth.admin_login') }}" class="nav-link nav-admin-panel">Admin</a>
       {% endif %}
     </div>
   </nav>
 </header>
 
 <!-- ── PARALLAX BG LOGO ─────────────────────────────────────────────── -->
-<div class="bg-logo" id="bgLogo" aria-hidden="true">
-  <svg viewBox="0 0 200 220" xmlns="http://www.w3.org/2000/svg">
-    <defs>
-      <linearGradient id="bgLogoGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-        <stop offset="0%"   stop-color="#ff6a00"/>
-        <stop offset="100%" stop-color="#ff9c47"/>
-      </linearGradient>
-    </defs>
-    <polygon points="100,6 192,56 192,164 100,214 8,164 8,56"
-             fill="none" stroke="url(#bgLogoGrad)" stroke-width="3"/>
-    <polygon points="100,26 175,68 175,152 100,194 25,152 25,68"
-             fill="none" stroke="url(#bgLogoGrad)" stroke-width="1.5" opacity="0.55"/>
-  </svg>
-</div>
+{% block bg_logo %}{% endblock %}
 
 <!-- ── MAIN ─────────────────────────────────────────────────────────── -->
 <main class="main-content">

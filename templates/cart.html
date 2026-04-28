@@ -66,7 +66,12 @@
         <span>Total</span>
         <span id="total">${{ "%.2f"|format(totals.total) }}</span>
       </div>
+      {% if session.get('user_id') %}
       <a href="{{ url_for('user.checkout') }}" class="btn-primary btn-block">Proceed to Checkout</a>
+      {% else %}
+      <a href="{{ url_for('user.login') }}?next=/checkout" class="btn-primary btn-block">Login to Checkout</a>
+      <p class="cart-login-hint">Your cart will be saved while you log in.</p>
+      {% endif %}
       <a href="{{ url_for('public.index') }}" class="btn-secondary btn-block">Continue Shopping</a>
     </div>
   </div>

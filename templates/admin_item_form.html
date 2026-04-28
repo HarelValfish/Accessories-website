@@ -95,8 +95,15 @@
 
       <!-- Image picker (shown after fetch) -->
       <div class="form-group" id="imagePickerWrap" style="display:none">
-        <label class="field-label">Choose an Image</label>
+        <label class="field-label">Choose Images</label>
+        <p class="field-hint" style="margin-bottom:0.5rem">Click to select one or more. Use the buttons below to set the primary image or add to gallery.</p>
         <div class="image-picker-grid" id="imagePickerGrid"></div>
+        <div class="image-picker-actions" id="imagePickerActions">
+          <button type="button" class="btn-primary" id="pickSetPrimaryBtn" disabled>Set as Primary</button>
+          <button type="button" class="btn-edit" id="pickAddGalleryBtn" disabled>Add to Gallery</button>
+          <button type="button" class="btn-edit" id="pickSelectAllBtn">Select All</button>
+          <span class="pick-hint" id="pickHint">0 selected</span>
+        </div>
       </div>
 
       <!-- Image preview -->
@@ -210,22 +217,63 @@
     return String(s).replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
   }
 
+  const pickSetPrimaryBtn = document.getElementById('pickSetPrimaryBtn');
+  const pickAddGalleryBtn = document.getElementById('pickAddGalleryBtn');
+  const pickSelectAllBtn  = document.getElementById('pickSelectAllBtn');
+  const pickHint          = document.getElementById('pickHint');
+  let pickedUrls = [];
+
+  function updatePickerActions() {
+    const n = pickedUrls.length;
+    pickHint.textContent       = n === 1 ? '1 selected' : `${n} selected`;
+    pickSetPrimaryBtn.disabled = n === 0;
+    pickAddGalleryBtn.disabled = n === 0;
+  }
+
   function renderPicker(urls) {
+    pickedUrls = [];
     imagePickerGrid.innerHTML = urls.map((url, i) => `
-      <button type="button" class="image-pick-btn" data-url="${encodeAttr(url)}">
+      <button type="button" class="image-pick-btn" data-url="${encodeAttr(url)}" data-idx="${i}">
         <img src="${encodeAttr(url)}" alt="Option ${i + 1}" onerror="this.closest('.image-pick-btn').style.display='none'" />
+        <span class="pick-check">✓</span>
+        <span class="pick-number"></span>
       </button>
     `).join('');
+
     imagePickerGrid.querySelectorAll('.image-pick-btn').forEach(btn => {
       btn.addEventListener('click', () => {
         const url = btn.dataset.url;
-        imageUrlInput.value = url;
-        showPreview(url);
-        imagePickerWrap.style.display = 'none';
+        const idx = pickedUrls.indexOf(url);
+        if (idx > -1) {
+          pickedUrls.splice(idx, 1);
+          btn.classList.remove('selected');
+        } else {
+          pickedUrls.push(url);
+          btn.classList.add('selected');
+        }
+        // Update order numbers on selected buttons
+        imagePickerGrid.querySelectorAll('.image-pick-btn.selected').forEach((b, order) => {
+          b.querySelector('.pick-number').textContent = `#${order + 1}`;
+        });
+        updatePickerActions();
       });
     });
+
+    updatePickerActions();
     imagePickerWrap.style.display = 'block';
   }
+
+  pickSelectAllBtn.addEventListener('click', () => {
+    const allBtns = [...imagePickerGrid.querySelectorAll('.image-pick-btn')];
+    if (!allBtns.length) return;
+    const allSelected = pickedUrls.length === allBtns.length;
+    pickedUrls = allSelected ? [] : allBtns.map(b => b.dataset.url);
+    allBtns.forEach((b, order) => {
+      b.classList.toggle('selected', !allSelected);
+      b.querySelector('.pick-number').textContent = !allSelected ? `#${order + 1}` : '';
+    });
+    updatePickerActions();
+  });
 
   document.getElementById('fetchImageBtn').addEventListener('click', async () => {
     const name = document.getElementById('name').value.trim();
@@ -286,6 +334,19 @@
   }
 
   renderGalleryList();
+
+  pickSetPrimaryBtn.addEventListener('click', () => {
+    if (!pickedUrls.length) return;
+    imageUrlInput.value = pickedUrls[0];
+    showPreview(pickedUrls[0]);
+  });
+
+  pickAddGalleryBtn.addEventListener('click', () => {
+    pickedUrls.forEach(url => { if (!galleryImages.includes(url)) galleryImages.push(url); });
+    imagesJsonInput.value = JSON.stringify(galleryImages);
+    renderGalleryList();
+    document.getElementById('galleryList').scrollIntoView({ behavior: 'smooth', block: 'center' });
+  });
 
   document.getElementById('addGalleryBtn').addEventListener('click', () => {
     galleryImages.push('');

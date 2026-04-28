@@ -22,7 +22,12 @@
     <div class="alert alert-error">{{ error }}</div>
   {% endif %}
 
+  {% if request.args.get('expired') %}
+    <div class="alert alert-error">Session expired after 5 minutes of inactivity. Please log in again.</div>
+  {% endif %}
+
   <form method="POST" action="{{ url_for('auth.admin_login') }}" class="login-form">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
     <label class="field-label" for="password">Password</label>
     <input type="password" id="password" name="password"
            placeholder="••••••••" class="field-input" autofocus required />
