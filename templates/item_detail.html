@@ -8,10 +8,28 @@
   <div class="detail-grid">
     <!-- Image -->
     <div class="detail-image-wrap" data-animate="left">
-      <img src="{{ item.get('image_url', 'https://picsum.photos/640/400') }}"
+      <img id="mainImage"
+           src="{{ item.get('image_url', 'https://picsum.photos/640/400') }}"
            alt="{{ item['name'] }}"
            class="detail-image"
            onerror="this.src='https://picsum.photos/seed/default/640/400'" />
+
+      {# Build thumbnail list: primary + gallery images #}
+      {% set thumbs = namespace(list=[]) %}
+      {% if item.get('image_url') %}{% set thumbs.list = thumbs.list + [item['image_url']] %}{% endif %}
+      {% for img in item.get('images', []) if img %}{% set thumbs.list = thumbs.list + [img] %}{% endfor %}
+
+      {% if thumbs.list | length > 1 %}
+      <div class="detail-thumbnails" id="detailThumbs">
+        {% for img in thumbs.list %}
+        <button type="button" class="detail-thumb{% if loop.first %} thumb-active{% endif %}"
+                data-img="{{ img }}" onclick="switchMainImage(this)">
+          <img src="{{ img }}" alt="" loading="lazy"
+               onerror="this.parentElement.style.display='none'" />
+        </button>
+        {% endfor %}
+      </div>
+      {% endif %}
     </div>
 
     <!-- Info -->
@@ -52,6 +70,7 @@
           <button type="button"
                   class="color-swatch-display"
                   data-color="{{ color['name'] }}"
+                  data-image="{{ color.get('image_url', '') }}"
                   style="background:{{ color['hex'] }}"
                   title="{{ color['name'] }}"
                   onclick="selectColor(this, '{{ color['name'] }}')">
@@ -73,13 +92,49 @@
 
 {% block extra_js %}
 <script>
+  const mainImage = document.getElementById('mainImage');
+  const originalImageSrc = mainImage ? mainImage.src : '';
   let selectedColor = null;
+
+  function crossfadeMainImage(newSrc) {
+    if (!mainImage || mainImage.src === newSrc) return;
+    mainImage.style.transition = 'opacity 0.25s ease';
+    mainImage.style.opacity = '0';
+    setTimeout(() => {
+      mainImage.src = newSrc;
+      mainImage.style.opacity = '1';
+    }, 260);
+  }
+
+  function switchMainImage(thumb) {
+    crossfadeMainImage(thumb.dataset.img);
+    document.querySelectorAll('.detail-thumb').forEach(t => t.classList.remove('thumb-active'));
+    thumb.classList.add('thumb-active');
+    // Deselect color swatch when manually picking a gallery image
+    document.querySelectorAll('.color-swatch-display').forEach(s => s.classList.remove('swatch-active'));
+    document.getElementById('selectedColorLabel') && (document.getElementById('selectedColorLabel').textContent = 'Select a color');
+    selectedColor = null;
+  }
 
   function selectColor(btn, name) {
     document.querySelectorAll('.color-swatch-display').forEach(s => s.classList.remove('swatch-active'));
     btn.classList.add('swatch-active');
     document.getElementById('selectedColorLabel').textContent = name;
     selectedColor = name;
+
+    const colorImg = btn.dataset.image;
+    if (colorImg) {
+      crossfadeMainImage(colorImg);
+      // Clear thumbnail active state since we're on a color-specific image
+      document.querySelectorAll('.detail-thumb').forEach(t => t.classList.remove('thumb-active'));
+    } else {
+      crossfadeMainImage(originalImageSrc);
+      const firstThumb = document.querySelector('.detail-thumb');
+      if (firstThumb) {
+        document.querySelectorAll('.detail-thumb').forEach(t => t.classList.remove('thumb-active'));
+        firstThumb.classList.add('thumb-active');
+      }
+    }
   }
 
   // Add to Cart functionality
@@ -88,7 +143,6 @@
     const itemId = '{{ item._id }}';
     const hasColors = {{ 'true' if item.get('colors_enabled') and item.get('colors') else 'false' }};
 
-    // Check if color selection is required but not selected
     if (hasColors && !selectedColor) {
       alert('Please select a color first');
       return;
@@ -118,7 +172,6 @@
         btn.textContent = '✓ Added to Cart!';
         setTimeout(() => { btn.textContent = originalText; btn.disabled = false; }, 2000);
 
-        // Update cart badge
         const cartBadge = document.querySelector('.cart-badge');
         if (cartBadge) {
           cartBadge.textContent = data.item_count;

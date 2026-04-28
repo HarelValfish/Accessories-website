@@ -49,13 +49,19 @@
         </p>
       </div>
 
-      <!-- Price + Stock row -->
+      <!-- Price + Cost + Stock row -->
       <div class="form-row">
         <div class="form-group">
           <label class="field-label" for="price">Price (USD) *</label>
           <input type="number" id="price" name="price" class="field-input"
                  min="0" step="0.01"
                  value="{{ item['price'] if item else '0.00' }}" required />
+        </div>
+        <div class="form-group">
+          <label class="field-label" for="cost">Unit Cost (USD)</label>
+          <input type="number" id="cost" name="cost" class="field-input"
+                 min="0" step="0.01"
+                 value="{{ item.get('cost', 0) if item else '0.00' }}" />
         </div>
         <div class="form-group">
           <label class="field-label" for="stock">Stock Quantity *</label>
@@ -87,6 +93,12 @@
         </div>
       </div>
 
+      <!-- Image picker (shown after fetch) -->
+      <div class="form-group" id="imagePickerWrap" style="display:none">
+        <label class="field-label">Choose an Image</label>
+        <div class="image-picker-grid" id="imagePickerGrid"></div>
+      </div>
+
       <!-- Image preview -->
       <div class="form-group" id="previewWrap" style="{% if not item or not item.get('image_url') %}display:none{% endif %}">
         <label class="field-label">Image Preview</label>
@@ -94,6 +106,16 @@
              src="{{ item['image_url'] if item and item.get('image_url') else '' }}"
              alt="Preview" class="image-preview"
              onerror="this.style.display='none'" />
+      </div>
+
+      <!-- Gallery Images -->
+      <div class="form-group">
+        <label class="field-label">Gallery Images</label>
+        <p class="field-hint">Additional images shown in the hover slideshow on product cards.</p>
+        <input type="hidden" name="images_json" id="imagesJsonInput"
+               value="{{ (item.get('images', []) if item else []) | tojson | forceescape }}" />
+        <div id="galleryList" class="gallery-list"></div>
+        <button type="button" class="btn-edit" id="addGalleryBtn" style="margin-top:0.5rem">+ Add Image URL</button>
       </div>
 
       <!-- Color options -->
@@ -181,6 +203,30 @@
     previewWrap.style.display = 'none';
   });
 
+  const imagePickerWrap = document.getElementById('imagePickerWrap');
+  const imagePickerGrid = document.getElementById('imagePickerGrid');
+
+  function encodeAttr(s) {
+    return String(s).replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  }
+
+  function renderPicker(urls) {
+    imagePickerGrid.innerHTML = urls.map((url, i) => `
+      <button type="button" class="image-pick-btn" data-url="${encodeAttr(url)}">
+        <img src="${encodeAttr(url)}" alt="Option ${i + 1}" onerror="this.closest('.image-pick-btn').style.display='none'" />
+      </button>
+    `).join('');
+    imagePickerGrid.querySelectorAll('.image-pick-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const url = btn.dataset.url;
+        imageUrlInput.value = url;
+        showPreview(url);
+        imagePickerWrap.style.display = 'none';
+      });
+    });
+    imagePickerWrap.style.display = 'block';
+  }
+
   document.getElementById('fetchImageBtn').addEventListener('click', async () => {
     const name = document.getElementById('name').value.trim();
     const desc = document.getElementById('description').value.trim();
@@ -189,12 +235,63 @@
     btn.textContent = '⏳ Searching…';
     btn.disabled = true;
     try {
-      const res  = await fetch(`/api/fetch-image?name=${encodeURIComponent(name)}&description=${encodeURIComponent(desc)}`);
+      const res  = await fetch(`/api/fetch-images?name=${encodeURIComponent(name)}&description=${encodeURIComponent(desc)}`);
       const data = await res.json();
-      if (data.image_url) { imageUrlInput.value = data.image_url; showPreview(data.image_url); }
-      else alert('No image found. Try a different name or paste a URL manually.');
-    } catch { alert('Could not fetch image. Try again or paste a URL manually.'); }
+      if (data.images && data.images.length) { renderPicker(data.images); }
+      else alert('No images found. Try a different name or paste a URL manually.');
+    } catch { alert('Could not fetch images. Try again or paste a URL manually.'); }
     finally { btn.textContent = '🔍 Find image automatically'; btn.disabled = false; }
+  });
+
+  // ── Utility ───────────────────────────────────────────────────────
+  function escapeHtml(str) {
+    return String(str)
+      .replace(/&/g, '&amp;').replace(/"/g, '&quot;')
+      .replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  }
+
+  // ── Gallery Images ─────────────────────────────────────────────────
+  const imagesJsonInput = document.getElementById('imagesJsonInput');
+  let galleryImages = JSON.parse(imagesJsonInput.value || '[]');
+
+  function renderGalleryList() {
+    const list = document.getElementById('galleryList');
+    if (galleryImages.length === 0) {
+      list.innerHTML = '<p class="field-hint">No additional images yet.</p>';
+    } else {
+      list.innerHTML = galleryImages.map((url, i) => `
+        <div class="gallery-item-row">
+          <input type="url" class="field-input gallery-url-input"
+                 value="${escapeHtml(url)}" placeholder="https://example.com/image.jpg" data-idx="${i}" />
+          <button type="button" class="btn-cancel gallery-remove-btn" data-idx="${i}">✕</button>
+        </div>
+      `).join('');
+
+      list.querySelectorAll('.gallery-url-input').forEach(inp => {
+        inp.addEventListener('input', () => {
+          galleryImages[parseInt(inp.dataset.idx)] = inp.value.trim();
+          imagesJsonInput.value = JSON.stringify(galleryImages);
+        });
+      });
+
+      list.querySelectorAll('.gallery-remove-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+          galleryImages.splice(parseInt(btn.dataset.idx), 1);
+          imagesJsonInput.value = JSON.stringify(galleryImages);
+          renderGalleryList();
+        });
+      });
+    }
+    imagesJsonInput.value = JSON.stringify(galleryImages);
+  }
+
+  renderGalleryList();
+
+  document.getElementById('addGalleryBtn').addEventListener('click', () => {
+    galleryImages.push('');
+    renderGalleryList();
+    const inputs = document.querySelectorAll('.gallery-url-input');
+    if (inputs.length) inputs[inputs.length - 1].focus();
   });
 
   // ── Color picker ─────────────────────────────────────────────────
@@ -212,12 +309,25 @@
     const list = document.getElementById('selectedColorsList');
     if (selectedColors.length === 0) {
       list.innerHTML = '<p class="field-hint">No colors selected yet.</p>';
-    } else {
-      list.innerHTML = '<p class="field-hint" style="margin-bottom:0.5rem">Selected: ' +
-        selectedColors.map(c =>
-          `<span class="selected-color-chip" style="background:${c.hex}">${c.name}</span>`
-        ).join('') + '</p>';
+      return;
     }
+
+    list.innerHTML = selectedColors.map((c, i) => `
+      <div class="color-img-row" data-idx="${i}">
+        <span class="selected-color-chip" style="background:${c.hex}">${escapeHtml(c.name)}</span>
+        <input type="url" class="field-input color-img-url-input"
+               value="${escapeHtml(c.image_url || '')}"
+               placeholder="Image URL for ${escapeHtml(c.name)} (optional)"
+               data-idx="${i}" />
+      </div>
+    `).join('');
+
+    list.querySelectorAll('.color-img-url-input').forEach(inp => {
+      inp.addEventListener('input', () => {
+        selectedColors[parseInt(inp.dataset.idx)].image_url = inp.value.trim();
+        colorsJsonInput.value = JSON.stringify(selectedColors);
+      });
+    });
   }
 
   function syncSwatches() {

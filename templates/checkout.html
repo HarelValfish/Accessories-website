@@ -1,9 +1,238 @@
 {% extends "base.html" %}
 {% block title %}Checkout — TechDen{% endblock %}
 
+{% block extra_css %}
+<style>
+/* ── Checkout step indicator ─────────────────────────────── */
+.checkout-steps {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  margin-bottom: 2rem;
+  font-size: 0.82rem;
+}
+.cstep { color: var(--text-2); font-weight: 500; padding: 0.25rem 0.6rem; border-radius: 100px; }
+.cstep--done   { color: var(--accent); }
+.cstep--active { background: var(--accent); color: #fff; font-weight: 700; }
+.cstep-sep     { color: var(--text-2); opacity: 0.4; }
+
+/* Validation error highlight */
+.field-input.is-error { border-color: #ef4444 !important; }
+
+/* ── Hyp payment panel ───────────────────────────────────── */
+.hyp-panel {
+  background: #fff;
+  border: 1px solid #dde2eb;
+  border-radius: 18px;
+  padding: 1.75rem;
+  position: relative;
+  overflow: hidden;
+  box-shadow: 0 6px 28px rgba(0,0,0,0.09);
+  color: #111827;
+}
+
+.hyp-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 1rem;
+  padding-bottom: 0.9rem;
+  border-bottom: 1px solid #eef1f6;
+}
+.hyp-logo {
+  font-size: 1.55rem;
+  font-weight: 900;
+  letter-spacing: -0.07em;
+  color: #0057b8;
+  font-family: var(--font-head);
+}
+.hyp-logo em { color: #0096ff; font-style: normal; }
+.hyp-secure  { font-size: 0.78rem; color: #6b7280; display: flex; align-items: center; gap: 0.3rem; }
+
+.hyp-demo-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  background: #fef9ec;
+  color: #92400e;
+  border: 1px solid #fcd34d;
+  border-radius: 100px;
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  padding: 0.18rem 0.65rem;
+  margin-bottom: 1rem;
+}
+
+.hyp-amount-display {
+  text-align: center;
+  padding: 0.85rem 1rem;
+  background: #f0f7ff;
+  border-radius: 10px;
+  margin-bottom: 1.2rem;
+}
+.hyp-amount-label { font-size: 0.75rem; color: #6b7280; margin-bottom: 0.15rem; }
+.hyp-amount-value { font-size: 1.65rem; font-weight: 800; color: #0057b8; }
+
+.hyp-methods {
+  display: flex;
+  gap: 0.5rem;
+  margin-bottom: 1.2rem;
+}
+.hyp-method-btn {
+  flex: 1;
+  padding: 0.5rem 0.6rem;
+  border: 2px solid #e0e5ef;
+  border-radius: 8px;
+  background: #fff;
+  font-size: 0.8rem;
+  font-weight: 600;
+  cursor: pointer;
+  color: #9ca3af;
+  transition: all 0.15s;
+  text-align: center;
+  white-space: nowrap;
+}
+.hyp-method-btn--active { border-color: #0057b8; color: #0057b8; background: #f0f7ff; }
+.hyp-method-btn--disabled { opacity: 0.4; cursor: default; }
+
+.hyp-field { margin-bottom: 0.9rem; position: relative; }
+.hyp-field label {
+  display: block;
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: #6b7280;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  margin-bottom: 0.3rem;
+}
+.hyp-input {
+  width: 100%;
+  padding: 0.68rem 0.9rem;
+  border: 1.5px solid #dde2eb;
+  border-radius: 8px;
+  font-size: 0.95rem;
+  color: #111827;
+  background: #fff;
+  transition: border-color 0.15s;
+  outline: none;
+  box-sizing: border-box;
+  font-family: 'Menlo', 'Courier New', monospace;
+}
+.hyp-input.name-input { font-family: inherit; }
+.hyp-input:focus      { border-color: #0057b8; }
+.hyp-input.is-error   { border-color: #ef4444; }
+
+.card-brand-badge {
+  position: absolute;
+  right: 0.8rem;
+  bottom: 0.7rem;
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: #6b7280;
+  pointer-events: none;
+}
+
+.hyp-grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem; }
+
+.hyp-pay-btn {
+  width: 100%;
+  background: linear-gradient(135deg, #0057b8 0%, #0096ff 100%);
+  color: #fff;
+  border: none;
+  padding: 0.9rem 1rem;
+  border-radius: 10px;
+  font-size: 1rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: opacity 0.2s, transform 0.15s;
+  margin-top: 0.35rem;
+  letter-spacing: 0.01em;
+}
+.hyp-pay-btn:hover:not(:disabled) { opacity: 0.9; transform: translateY(-1px); }
+.hyp-pay-btn:active:not(:disabled) { transform: translateY(0); }
+.hyp-pay-btn:disabled { opacity: 0.45; cursor: not-allowed; transform: none; }
+
+.hyp-error-msg {
+  margin-top: 0.75rem;
+  padding: 0.65rem 0.85rem;
+  background: #fef2f2;
+  border: 1px solid #fecaca;
+  border-radius: 8px;
+  color: #b91c1c;
+  font-size: 0.84rem;
+}
+
+/* Processing overlay */
+.hyp-processing-overlay {
+  position: absolute;
+  inset: 0;
+  background: rgba(255,255,255,0.96);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 10;
+  border-radius: 18px;
+  backdrop-filter: blur(2px);
+}
+.hyp-processing-inner { display: flex; flex-direction: column; align-items: center; gap: 1.1rem; }
+.hyp-spinner {
+  width: 44px; height: 44px;
+  border: 4px solid #dde2eb;
+  border-top-color: #0057b8;
+  border-radius: 50%;
+  animation: hSpin 0.75s linear infinite;
+}
+@keyframes hSpin { to { transform: rotate(360deg); } }
+.hyp-processing-label { font-size: 0.93rem; color: #6b7280; font-weight: 500; }
+
+.hyp-success-circle {
+  width: 52px; height: 52px;
+  background: #22c55e;
+  border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 1.5rem; color: #fff;
+  animation: hPop 0.3s cubic-bezier(0.34,1.56,0.64,1);
+}
+@keyframes hPop {
+  from { transform: scale(0.4); opacity: 0; }
+  to   { transform: scale(1);   opacity: 1; }
+}
+
+.hyp-compliance {
+  display: flex;
+  justify-content: center;
+  gap: 1.5rem;
+  margin-top: 0.9rem;
+  font-size: 0.7rem;
+  color: #9ca3af;
+}
+
+/* Back button */
+.payment-step-back {
+  background: none; border: none; cursor: pointer;
+  color: var(--accent); font-size: 0.87rem; padding: 0;
+  margin-bottom: 1.1rem; display: inline-flex; align-items: center; gap: 0.3rem;
+}
+.payment-step-back:hover { text-decoration: underline; }
+</style>
+{% endblock %}
+
 {% block content %}
 <div class="checkout-page">
   <h1 class="page-title">Checkout</h1>
+
+  <!-- Step indicator -->
+  <div class="checkout-steps">
+    <span class="cstep cstep--done">Cart</span>
+    <span class="cstep-sep">›</span>
+    <span class="cstep" id="cstepShipping">Shipping</span>
+    <span class="cstep-sep">›</span>
+    <span class="cstep" id="cstepPayment">Payment</span>
+    <span class="cstep-sep">›</span>
+    <span class="cstep">Confirmation</span>
+  </div>
 
   {% if error %}
   <div class="alert alert-error">{{ error }}</div>
@@ -11,50 +240,145 @@
 
   <div class="checkout-content">
     <div class="checkout-form-section" data-animate>
-      <h2 class="section-title">Shipping Address</h2>
-      <form method="POST" class="checkout-form">
-        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
-        <div class="form-group">
-          <label class="field-label" for="name">Full Name *</label>
-          <input type="text" id="name" name="name" class="field-input" required />
-        </div>
 
-        <div class="form-group">
-          <label class="field-label" for="address">Street Address *</label>
-          <input type="text" id="address" name="address" class="field-input" required />
-        </div>
+      <!-- ═══ STEP 1: SHIPPING ════════════════════════════════ -->
+      <div id="shippingStep">
+        <h2 class="section-title">Shipping Address</h2>
+        <form id="checkoutForm" method="POST" class="checkout-form">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
 
-        <div class="form-row">
           <div class="form-group">
-            <label class="field-label" for="city">City *</label>
-            <input type="text" id="city" name="city" class="field-input" required />
+            <label class="field-label" for="name">Full Name *</label>
+            <input type="text" id="name" name="name" class="field-input" autocomplete="name" required />
           </div>
           <div class="form-group">
-            <label class="field-label" for="state">State *</label>
-            <input type="text" id="state" name="state" class="field-input" required />
+            <label class="field-label" for="address">Street Address *</label>
+            <input type="text" id="address" name="address" class="field-input" autocomplete="street-address" required />
+          </div>
+          <div class="form-row">
+            <div class="form-group">
+              <label class="field-label" for="city">City *</label>
+              <input type="text" id="city" name="city" class="field-input" autocomplete="address-level2" required />
+            </div>
+            <div class="form-group">
+              <label class="field-label" for="state">State *</label>
+              <input type="text" id="state" name="state" class="field-input" autocomplete="address-level1" required />
+            </div>
+            <div class="form-group">
+              <label class="field-label" for="zip">ZIP Code *</label>
+              <input type="text" id="zip" name="zip" class="field-input" autocomplete="postal-code" required />
+            </div>
           </div>
           <div class="form-group">
-            <label class="field-label" for="zip">ZIP Code *</label>
-            <input type="text" id="zip" name="zip" class="field-input" required />
+            <label class="field-label" for="country">Country</label>
+            <input type="text" id="country" name="country" class="field-input" value="USA" autocomplete="country-name" required />
           </div>
+
+          <button type="button" id="continueToPayBtn" class="btn-primary btn-block">
+            Continue to Payment →
+          </button>
+          <a href="{{ url_for('user.view_cart') }}" class="btn-secondary btn-block" style="margin-top:0.5rem;text-align:center;display:block">
+            Back to Cart
+          </a>
+        </form>
+      </div>
+
+      <!-- ═══ STEP 2: HYP PAYMENT ════════════════════════════ -->
+      <div id="paymentStep" style="display:none">
+        <button type="button" class="payment-step-back" id="backToShippingBtn">← Back to Shipping</button>
+        <h2 class="section-title" style="margin-bottom:1.25rem">Payment</h2>
+
+        <div class="hyp-panel">
+
+          <!-- Processing / success overlay -->
+          <div class="hyp-processing-overlay" id="hypOverlay" style="display:none">
+            <div class="hyp-processing-inner" id="hypOverlayContent">
+              <div class="hyp-spinner"></div>
+              <div class="hyp-processing-label">Processing payment…</div>
+            </div>
+          </div>
+
+          <!-- Hyp header -->
+          <div class="hyp-header">
+            <div class="hyp-logo">hy<em>p</em></div>
+            <div class="hyp-secure">🔒 Secured by hyp</div>
+          </div>
+
+          <div class="hyp-demo-badge">⚡ Proof of Concept — Demo Mode</div>
+
+          <!-- Amount -->
+          <div class="hyp-amount-display">
+            <div class="hyp-amount-label">Total to Pay</div>
+            <div class="hyp-amount-value">${{ "%.2f"|format(totals.total) }}</div>
+          </div>
+
+          <!-- Payment method tabs -->
+          <div class="hyp-methods">
+            <button class="hyp-method-btn hyp-method-btn--active">💳 Credit Card</button>
+            <button class="hyp-method-btn hyp-method-btn--disabled" title="Not available in demo">bit</button>
+            <button class="hyp-method-btn hyp-method-btn--disabled" title="Not available in demo"> Pay</button>
+          </div>
+
+          <!-- Card fields -->
+          <div class="hyp-field">
+            <label>Card Number</label>
+            <input type="text" id="hypCardNum" class="hyp-input"
+                   placeholder="0000  0000  0000  0000" maxlength="19"
+                   inputmode="numeric" autocomplete="cc-number" />
+            <span class="card-brand-badge" id="cardBrandBadge"></span>
+          </div>
+
+          <div class="hyp-grid-2">
+            <div class="hyp-field">
+              <label>Expiry Date</label>
+              <input type="text" id="hypExpiry" class="hyp-input"
+                     placeholder="MM/YY" maxlength="5"
+                     inputmode="numeric" autocomplete="cc-exp" />
+            </div>
+            <div class="hyp-field">
+              <label>CVV</label>
+              <input type="text" id="hypCvv" class="hyp-input"
+                     placeholder="•••" maxlength="4"
+                     inputmode="numeric" autocomplete="cc-csc" />
+            </div>
+          </div>
+
+          <div class="hyp-field">
+            <label>Cardholder Name</label>
+            <input type="text" id="hypCardName" class="hyp-input name-input"
+                   placeholder="Name as it appears on card"
+                   autocomplete="cc-name" />
+          </div>
+
+          <button type="button" id="hypPayBtn" class="hyp-pay-btn">
+            Pay ${{ "%.2f"|format(totals.total) }}
+          </button>
+
+          <div id="hypErrorMsg" class="hyp-error-msg" style="display:none"></div>
         </div>
 
-        <div class="form-group">
-          <label class="field-label" for="country">Country</label>
-          <input type="text" id="country" name="country" class="field-input" value="USA" required />
+        <!-- Compliance footer -->
+        <div class="hyp-compliance">
+          <span>🛡 PCI DSS Level 1</span>
+          <span>🔐 256-bit TLS Encryption</span>
+          <span>✅ 3D Secure Ready</span>
         </div>
 
-        <button type="submit" class="btn-primary btn-block">Place Order (Demo)</button>
-        <a href="{{ url_for('user.view_cart') }}" class="btn-secondary btn-block">Back to Cart</a>
-      </form>
+        <!-- Test hint -->
+        <p style="margin-top:0.75rem;font-size:0.75rem;color:var(--text-2);text-align:center">
+          Demo: any card number works. Use <code>4000 0000 0000 0002</code> to simulate a decline.
+        </p>
+      </div>
+
     </div>
 
+    <!-- ── Order Summary ──────────────────────────────────── -->
     <div class="checkout-summary" data-animate>
       <h2 class="section-title">Order Summary</h2>
       <div class="summary-items">
         {% for item in cart %}
         <div class="summary-item">
-          <span class="item-name">{{ item.name }} x{{ item.quantity }}</span>
+          <span class="item-name">{{ item.name }}{% if item.selected_color %} · {{ item.selected_color }}{% endif %} ×{{ item.quantity }}</span>
           <span class="item-price">${{ "%.2f"|format(item.price * item.quantity) }}</span>
         </div>
         {% endfor %}
@@ -76,4 +400,130 @@
     </div>
   </div>
 </div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+  const shippingStep   = document.getElementById('shippingStep');
+  const paymentStep    = document.getElementById('paymentStep');
+  const cstepShipping  = document.getElementById('cstepShipping');
+  const cstepPayment   = document.getElementById('cstepPayment');
+
+  // Mark current step on load
+  cstepShipping.classList.add('cstep--active');
+
+  // ── Step navigation ────────────────────────────────────────
+  document.getElementById('continueToPayBtn').addEventListener('click', () => {
+    const required = ['name', 'address', 'city', 'state', 'zip', 'country'];
+    let valid = true;
+    required.forEach(id => {
+      const el = document.getElementById(id);
+      const ok = el.value.trim().length > 0;
+      el.classList.toggle('is-error', !ok);
+      if (!ok) valid = false;
+    });
+    if (!valid) return;
+
+    shippingStep.style.display = 'none';
+    paymentStep.style.display  = 'block';
+    cstepShipping.classList.replace('cstep--active', 'cstep--done');
+    cstepPayment.classList.add('cstep--active');
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  });
+
+  document.getElementById('backToShippingBtn').addEventListener('click', () => {
+    paymentStep.style.display  = 'none';
+    shippingStep.style.display = 'block';
+    cstepPayment.classList.remove('cstep--active');
+    cstepShipping.classList.replace('cstep--done', 'cstep--active');
+  });
+
+  // ── Card number: auto-space + brand detection ──────────────
+  const cardNumInput   = document.getElementById('hypCardNum');
+  const cardBrandBadge = document.getElementById('cardBrandBadge');
+
+  cardNumInput.addEventListener('input', e => {
+    const raw = e.target.value.replace(/\D/g, '').slice(0, 16);
+    e.target.value = raw.replace(/(.{4})/g, '$1 ').trim();
+
+    if      (raw.startsWith('4'))     cardBrandBadge.textContent = 'VISA';
+    else if (/^5[1-5]/.test(raw))     cardBrandBadge.textContent = 'MC';
+    else if (/^3[47]/.test(raw))      cardBrandBadge.textContent = 'AMEX';
+    else if (/^6(?:011|5)/.test(raw)) cardBrandBadge.textContent = 'DISC';
+    else                              cardBrandBadge.textContent = '';
+  });
+
+  // ── Expiry: auto-slash ─────────────────────────────────────
+  document.getElementById('hypExpiry').addEventListener('input', e => {
+    let val = e.target.value.replace(/\D/g, '').slice(0, 4);
+    if (val.length >= 3) val = val.slice(0, 2) + '/' + val.slice(2);
+    e.target.value = val;
+  });
+
+  // ── CVV: digits only ───────────────────────────────────────
+  document.getElementById('hypCvv').addEventListener('input', e => {
+    e.target.value = e.target.value.replace(/\D/g, '');
+  });
+
+  // ── Payment simulation ─────────────────────────────────────
+  const DECLINE_NUMBER = '4000 0000 0000 0002';
+
+  document.getElementById('hypPayBtn').addEventListener('click', () => {
+    const cardNum  = cardNumInput.value.trim();
+    const expiry   = document.getElementById('hypExpiry').value.trim();
+    const cvv      = document.getElementById('hypCvv').value.trim();
+    const cardName = document.getElementById('hypCardName').value.trim();
+    const errEl    = document.getElementById('hypErrorMsg');
+
+    // Clear previous errors
+    errEl.style.display = 'none';
+    [cardNumInput, document.getElementById('hypExpiry'),
+     document.getElementById('hypCvv'), document.getElementById('hypCardName')]
+      .forEach(el => el.classList.remove('is-error'));
+
+    // Validate
+    let err = '';
+    if (cardNum.replace(/\s/g, '').length < 13) {
+      cardNumInput.classList.add('is-error');
+      err = 'Please enter a valid card number.';
+    } else if (!/^\d{2}\/\d{2}$/.test(expiry)) {
+      document.getElementById('hypExpiry').classList.add('is-error');
+      err = 'Please enter expiry as MM/YY.';
+    } else if (cvv.length < 3) {
+      document.getElementById('hypCvv').classList.add('is-error');
+      err = 'Please enter a valid CVV.';
+    } else if (!cardName) {
+      document.getElementById('hypCardName').classList.add('is-error');
+      err = 'Please enter the cardholder name.';
+    }
+    if (err) { errEl.textContent = err; errEl.style.display = 'block'; return; }
+
+    // Show processing overlay
+    const overlay    = document.getElementById('hypOverlay');
+    const overlayContent = document.getElementById('hypOverlayContent');
+    document.getElementById('hypPayBtn').disabled = true;
+    overlay.style.display = 'flex';
+
+    setTimeout(() => {
+      if (cardNum === DECLINE_NUMBER) {
+        // Simulate decline
+        overlay.style.display = 'none';
+        document.getElementById('hypPayBtn').disabled = false;
+        errEl.textContent = '❌ Your card was declined. Please try a different card.';
+        errEl.style.display = 'block';
+        return;
+      }
+
+      // Payment approved — show success icon then submit
+      overlayContent.innerHTML = `
+        <div class="hyp-success-circle">✓</div>
+        <div class="hyp-processing-label" style="color:#16a34a;font-weight:700">Payment approved!</div>
+      `;
+      setTimeout(() => {
+        document.getElementById('checkoutForm').submit();
+      }, 950);
+
+    }, 2600);
+  });
+</script>
 {% endblock %}

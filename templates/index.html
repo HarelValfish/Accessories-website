@@ -12,9 +12,9 @@
     <p class="hero-sub">Cables, adapters, gadgets & more — everything for the modern setup.</p>
   </div>
   <div class="hero-badges">
-    <span class="badge">⚡ Fast Shipping</span>
-    <span class="badge">🔌 100+ SKUs</span>
-    <span class="badge">🛡 2-Year Warranty</span>
+    <span class="badge">Fast Shipping</span>
+    <span class="badge">100+ SKUs</span>
+    <span class="badge">2-Year Warranty</span>
   </div>
 </section>
 
@@ -39,19 +39,25 @@
   {% if items %}
   <div class="product-grid">
     {% for item in items %}
-    <article class="product-card" data-index="{{ loop.index0 }}">
-      <a href="{{ url_for('public.item_detail', item_id=item['_id']) }}" class="card-image-link">
-        <div class="card-image-wrap">
+    {# Build slideshow image list: primary + gallery + per-color images #}
+    {% set slide = namespace(imgs=[]) %}
+    {% if item.get('image_url') %}{% set slide.imgs = slide.imgs + [item['image_url']] %}{% endif %}
+    {% for img in item.get('images', []) if img %}{% set slide.imgs = slide.imgs + [img] %}{% endfor %}
+    {% for c in item.get('colors', []) if c.get('image_url') %}{% set slide.imgs = slide.imgs + [c['image_url']] %}{% endfor %}
+    <article class="product-card" data-index="{{ loop.index0 }}" data-images="{{ slide.imgs | tojson | forceescape }}">
+      <div class="card-image-wrap">
+        <a href="{{ url_for('public.item_detail', item_id=item['_id']) }}" class="card-image-link">
           <img src="{{ item.get('image_url', 'https://picsum.photos/640/400') }}"
                alt="{{ item['name'] }}"
                class="card-image"
                loading="lazy"
                onerror="this.src='https://picsum.photos/seed/default/640/400'" />
-          <div class="card-overlay">
-            <span class="view-btn">View Details →</span>
-          </div>
-        </div>
-      </a>
+        </a>
+        {% if slide.imgs | length > 1 %}
+        <button type="button" class="slide-arrow slide-arrow--prev" aria-label="Previous image">&#8249;</button>
+        <button type="button" class="slide-arrow slide-arrow--next" aria-label="Next image">&#8250;</button>
+        {% endif %}
+      </div>
       <div class="card-body">
         <span class="card-category">{{ item.get('category', '') }}</span>
         <h2 class="card-title">{{ item['name'] }}</h2>
@@ -172,6 +178,111 @@
         setTimeout(() => { btn.textContent = originalText; btn.disabled = false; }, 1500);
       }
     });
+  });
+
+  // Hover slideshow with slide transition and manual arrow navigation
+  document.querySelectorAll('.product-card').forEach(card => {
+    const wrap = card.querySelector('.card-image-wrap');
+    const img  = card.querySelector('.card-image');
+    if (!img || !wrap) return;
+
+    let images;
+    try { images = JSON.parse(card.dataset.images || '[]'); } catch { return; }
+
+    const uniqueImages = [...new Set(images.filter(Boolean))];
+    if (uniqueImages.length <= 1) return;
+
+    const primarySrc = uniqueImages[0];
+    let intervalId = null;
+    let currentIndex = 0;
+    let sliding = false;
+
+    function slideTo(newSrc, direction) {
+      if (sliding) return;
+      sliding = true;
+
+      const preload = new Image();
+      preload.onload = () => {
+        // Outgoing: clone of current image, slides out
+        const out = document.createElement('img');
+        out.src = img.src;
+        out.alt = '';
+        out.style.cssText = 'position:absolute;inset:0;width:100%;height:100%;object-fit:cover;z-index:2;transition:transform 0.5s ease;transform:translateX(0)';
+        wrap.appendChild(out);
+
+        // Incoming: set off-screen, then slide in
+        img.style.transition = 'none';
+        img.src = newSrc;
+        img.style.transform = direction === 'next' ? 'translateX(100%)' : 'translateX(-100%)';
+
+        void out.offsetWidth; // force reflow
+
+        out.style.transform = direction === 'next' ? 'translateX(-100%)' : 'translateX(100%)';
+        img.style.transition = 'transform 0.5s ease';
+        img.style.transform  = 'translateX(0)';
+
+        setTimeout(() => {
+          out.remove();
+          img.style.transition = '';
+          img.style.transform  = '';
+          sliding = false;
+        }, 510);
+      };
+      preload.onerror = () => { sliding = false; };
+      preload.src = newSrc;
+    }
+
+    function revertToPrimary() {
+      sliding = false;
+      wrap.querySelectorAll('img:not(.card-image)').forEach(el => el.remove());
+      img.style.transition = 'opacity 0.2s ease';
+      img.style.transform  = '';
+      img.style.opacity    = '0';
+      const preload = new Image();
+      preload.onload = () => {
+        img.src = primarySrc;
+        img.style.opacity = '1';
+        setTimeout(() => { img.style.transition = ''; }, 210);
+      };
+      preload.onerror = () => { img.style.opacity = '1'; img.style.transition = ''; };
+      preload.src = primarySrc;
+    }
+
+    function startAuto() {
+      clearInterval(intervalId);
+      intervalId = setInterval(() => {
+        currentIndex = (currentIndex + 1) % uniqueImages.length;
+        slideTo(uniqueImages[currentIndex], 'next');
+      }, 3000);
+    }
+
+    card.addEventListener('mouseenter', () => { currentIndex = 0; startAuto(); });
+    card.addEventListener('mouseleave', () => {
+      clearInterval(intervalId);
+      intervalId = null;
+      revertToPrimary();
+      currentIndex = 0;
+    });
+
+    const prevBtn = card.querySelector('.slide-arrow--prev');
+    const nextBtn = card.querySelector('.slide-arrow--next');
+
+    if (prevBtn) {
+      prevBtn.addEventListener('mouseenter', () => clearInterval(intervalId));
+      prevBtn.addEventListener('mouseleave', () => startAuto());
+      prevBtn.addEventListener('click', () => {
+        currentIndex = (currentIndex - 1 + uniqueImages.length) % uniqueImages.length;
+        slideTo(uniqueImages[currentIndex], 'prev');
+      });
+    }
+    if (nextBtn) {
+      nextBtn.addEventListener('mouseenter', () => clearInterval(intervalId));
+      nextBtn.addEventListener('mouseleave', () => startAuto());
+      nextBtn.addEventListener('click', () => {
+        currentIndex = (currentIndex + 1) % uniqueImages.length;
+        slideTo(uniqueImages[currentIndex], 'next');
+      });
+    }
   });
 </script>
 {% endblock %}

@@ -6,7 +6,7 @@
   <title>{% block title %}TechDen{% endblock %}</title>
   <link rel="icon" type="image/svg+xml" href="{{ url_for('static', filename='favicon.svg') }}">
   <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Sans:ital,wght@0,300;0,400;0,500;1,300&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Sans:ital,wght@0,300;0,400;0,500;1,300&family=Doto:wght@400;600;700;800;900&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
   {% block extra_css %}{% endblock %}
 </head>
@@ -49,6 +49,22 @@
   </nav>
 </header>
 
+<!-- ── PARALLAX BG LOGO ─────────────────────────────────────────────── -->
+<div class="bg-logo" id="bgLogo" aria-hidden="true">
+  <svg viewBox="0 0 200 220" xmlns="http://www.w3.org/2000/svg">
+    <defs>
+      <linearGradient id="bgLogoGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+        <stop offset="0%"   stop-color="#ff6a00"/>
+        <stop offset="100%" stop-color="#ff9c47"/>
+      </linearGradient>
+    </defs>
+    <polygon points="100,6 192,56 192,164 100,214 8,164 8,56"
+             fill="none" stroke="url(#bgLogoGrad)" stroke-width="3"/>
+    <polygon points="100,26 175,68 175,152 100,194 25,152 25,68"
+             fill="none" stroke="url(#bgLogoGrad)" stroke-width="1.5" opacity="0.55"/>
+  </svg>
+</div>
+
 <!-- ── MAIN ─────────────────────────────────────────────────────────── -->
 <main class="main-content">
   {% block content %}{% endblock %}
@@ -65,6 +81,30 @@
 {% block extra_js %}{% endblock %}
 
 <script>
+  // ── Parallax + fade for background hex logo ───────────────────────
+  (function() {
+    const bgLogo = document.getElementById('bgLogo');
+    if (!bgLogo) return;
+    const FADE_DISTANCE = 700; // px — by this point the logo is fully blurred out
+    function updateBgLogo() {
+      const y = window.scrollY || window.pageYOffset;
+      // Parallax: hex moves DOWN with scroll, slower than scroll (factor 0.5)
+      const translateY = y * 0.5;
+      // Fade: starts at 0.4 opacity, fades to 0 by FADE_DISTANCE
+      const t = Math.min(y / FADE_DISTANCE, 1);
+      const opacity = 0.4 * (1 - t);
+      // Blur: 0px at top, up to 14px when scrolled to items
+      const blur = (t * 14).toFixed(2);
+      bgLogo.style.transform = `translate3d(-50%, ${translateY}px, 0)`;
+      bgLogo.style.opacity   = opacity.toFixed(3);
+      bgLogo.style.filter    = `blur(${blur}px)`;
+    }
+    updateBgLogo();
+    window.addEventListener('scroll', () => {
+      window.requestAnimationFrame(updateBgLogo);
+    }, { passive: true });
+  })();
+
   // ── Intersection Observer — scroll reveal ──────────────────────────
   const revealObserver = new IntersectionObserver((entries) => {
     entries.forEach(entry => {

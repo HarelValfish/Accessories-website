@@ -1,0 +1,350 @@
+{% extends "base.html" %}
+{% block title %}Analytics — TechDen Admin{% endblock %}
+
+{% block extra_css %}
+<style>
+  .analytics-grid {
+    display: grid;
+    grid-template-columns: repeat(12, 1fr);
+    gap: 1.25rem;
+    margin-top: 1.5rem;
+  }
+  .chart-card {
+    background: var(--bg-2);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 1.25rem 1.4rem;
+    display: flex;
+    flex-direction: column;
+    min-height: 320px;
+  }
+  .chart-card.span-12 { grid-column: span 12; }
+  .chart-card.span-8  { grid-column: span 8;  }
+  .chart-card.span-6  { grid-column: span 6;  }
+  .chart-card.span-4  { grid-column: span 4;  }
+  @media (max-width: 1100px) {
+    .chart-card.span-8, .chart-card.span-6, .chart-card.span-4 { grid-column: span 12; }
+  }
+  .chart-title {
+    font-family: var(--font-head);
+    font-size: 0.95rem;
+    font-weight: 700;
+    color: var(--text);
+    margin-bottom: 0.15rem;
+  }
+  .chart-sub {
+    font-size: 0.75rem;
+    color: var(--text-muted);
+    margin-bottom: 1rem;
+  }
+  .chart-canvas-wrap { flex: 1; position: relative; min-height: 240px; }
+
+  .best-day-card {
+    grid-column: span 4;
+    background: linear-gradient(135deg, rgba(255,106,0,0.18), rgba(255,154,60,0.06));
+    border: 1px solid var(--accent);
+    border-radius: 14px;
+    padding: 1.25rem 1.4rem;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+  }
+  @media (max-width: 1100px) { .best-day-card { grid-column: span 12; } }
+  .best-day-card .label  { font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.12em; color: var(--accent-2); }
+  .best-day-card .date   { font-family: var(--font-head); font-size: 1.6rem; font-weight: 800; color: var(--text); margin: 0.4rem 0 0.6rem; }
+  .best-day-card .amount { font-family: var(--font-head); font-size: 2.4rem; font-weight: 800; color: var(--accent); }
+  .best-day-card .meta   { font-size: 0.8rem; color: var(--text-muted); margin-top: 0.4rem; }
+
+  .empty-chart {
+    display: flex; align-items: center; justify-content: center;
+    height: 100%; color: var(--text-muted); font-size: 0.85rem; font-style: italic;
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="admin-page">
+  <div class="admin-header">
+    <div>
+      <h1 class="admin-title">Analytics Dashboard</h1>
+      <p class="admin-sub">Sales trends, product popularity, and customer activity.</p>
+    </div>
+    <div class="admin-actions">
+      <a href="{{ url_for('admin.dashboard') }}" class="btn-secondary">← Inventory</a>
+    </div>
+  </div>
+
+  <!-- ── Headline stats ─────────────────────────────────────────── -->
+  <div class="stats-row" data-animate>
+    <div class="stat-card">
+      <p class="stat-label">Total Revenue</p>
+      <p class="stat-val">${{ "%.2f"|format(data.headline.total_revenue) }}</p>
+    </div>
+    <div class="stat-card">
+      <p class="stat-label">Total Cost (COGS)</p>
+      <p class="stat-val" style="color:#ef4444">${{ "%.2f"|format(data.headline.total_cost) }}</p>
+    </div>
+    <div class="stat-card">
+      <p class="stat-label">Net Profit</p>
+      <p class="stat-val" style="color:#00d68f">${{ "%.2f"|format(data.headline.total_profit) }}</p>
+    </div>
+    <div class="stat-card">
+      <p class="stat-label">Profit Margin</p>
+      <p class="stat-val">{{ "%.1f"|format(data.headline.profit_margin) }}%</p>
+    </div>
+    <div class="stat-card">
+      <p class="stat-label">Total Orders</p>
+      <p class="stat-val">{{ data.headline.total_orders }}</p>
+    </div>
+    <div class="stat-card">
+      <p class="stat-label">Avg. Order Value</p>
+      <p class="stat-val">${{ "%.2f"|format(data.headline.aov) }}</p>
+    </div>
+    <div class="stat-card">
+      <p class="stat-label">Customers</p>
+      <p class="stat-val">{{ data.headline.total_users }}</p>
+    </div>
+    <div class="stat-card">
+      <p class="stat-label">Item Views</p>
+      <p class="stat-val">{{ data.headline.total_views }}</p>
+    </div>
+  </div>
+
+  <!-- ── Chart grid ─────────────────────────────────────────────── -->
+  <div class="analytics-grid">
+
+    <!-- Sales over time (full width) -->
+    <div class="chart-card span-8" data-animate>
+      <div class="chart-title">Sales & Profit Over Time</div>
+      <div class="chart-sub">Daily revenue, cost (COGS) & net profit — last 30 days</div>
+      <div class="chart-canvas-wrap"><canvas id="salesChart"></canvas></div>
+    </div>
+
+    <!-- Best day card -->
+    <div class="best-day-card" data-animate>
+      <span class="label">Most Profitable Day</span>
+      {% if data.best_day.date %}
+        <div class="date">{{ data.best_day.date }}</div>
+        <div class="amount">${{ "%.2f"|format(data.best_day.profit) }}</div>
+        <div class="meta">
+          ${{ "%.2f"|format(data.best_day.revenue) }} revenue −
+          ${{ "%.2f"|format(data.best_day.cost) }} cost
+        </div>
+        <div class="meta">{{ data.best_day.orders }} order{{ 's' if data.best_day.orders != 1 else '' }} this day</div>
+      {% else %}
+        <div class="meta" style="margin-top:1rem">No sales data yet.</div>
+      {% endif %}
+    </div>
+
+    <!-- Top sellers -->
+    <div class="chart-card span-6" data-animate>
+      <div class="chart-title">Top-Selling Products</div>
+      <div class="chart-sub">Units sold, all-time</div>
+      <div class="chart-canvas-wrap"><canvas id="topSellersChart"></canvas></div>
+    </div>
+
+    <!-- Most viewed -->
+    <div class="chart-card span-6" data-animate>
+      <div class="chart-title">Item Interest (Clicks / Views)</div>
+      <div class="chart-sub">Detail page views</div>
+      <div class="chart-canvas-wrap"><canvas id="viewsChart"></canvas></div>
+    </div>
+
+    <!-- Active users -->
+    <div class="chart-card span-6" data-animate>
+      <div class="chart-title">Most Active Customers</div>
+      <div class="chart-sub">By total spend</div>
+      <div class="chart-canvas-wrap"><canvas id="usersChart"></canvas></div>
+    </div>
+
+    <!-- Profit by category (revenue vs cost vs profit) -->
+    <div class="chart-card span-6" data-animate>
+      <div class="chart-title">Revenue, Cost & Profit by Category</div>
+      <div class="chart-sub">Stacked breakdown</div>
+      <div class="chart-canvas-wrap"><canvas id="categoryChart"></canvas></div>
+    </div>
+
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<script>
+  const ACCENT  = '#ff6a00';
+  const ACCENT2 = '#ff9a3c';
+  const TEXT    = '#e8e8ee';
+  const MUTED   = '#7a7a8c';
+  const GRID    = 'rgba(255,255,255,0.06)';
+
+  Chart.defaults.color = MUTED;
+  Chart.defaults.font.family = 'DM Sans, sans-serif';
+  Chart.defaults.font.size = 11;
+
+  const PALETTE = [
+    '#ff6a00', '#ff9a3c', '#00d68f', '#ffd166',
+    '#3ea6ff', '#c084fc', '#f472b6', '#22d3ee',
+    '#fb7185', '#a3e635'
+  ];
+
+  const data = {{ data | tojson }};
+
+  // ── Sales / cost / profit over time ─────────────────────────────
+  (function() {
+    const ctx = document.getElementById('salesChart');
+    if (!ctx) return;
+    new Chart(ctx, {
+      type: 'line',
+      data: {
+        labels: data.sales_over_time.labels,
+        datasets: [
+          {
+            label: 'Revenue ($)',
+            data: data.sales_over_time.revenue,
+            borderColor: ACCENT,
+            backgroundColor: 'rgba(255,106,0,0.15)',
+            tension: 0.35,
+            fill: true,
+            pointRadius: 2,
+            pointBackgroundColor: ACCENT,
+            borderWidth: 2.5,
+          },
+          {
+            label: 'Cost ($)',
+            data: data.sales_over_time.cost,
+            borderColor: '#ef4444',
+            backgroundColor: 'rgba(239,68,68,0.0)',
+            borderDash: [4, 4],
+            tension: 0.3,
+            fill: false,
+            pointRadius: 2,
+            borderWidth: 2,
+          },
+          {
+            label: 'Profit ($)',
+            data: data.sales_over_time.profit,
+            borderColor: '#00d68f',
+            backgroundColor: 'rgba(0,214,143,0.18)',
+            tension: 0.35,
+            fill: true,
+            pointRadius: 2,
+            pointBackgroundColor: '#00d68f',
+            borderWidth: 2.5,
+          },
+        ]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        interaction: { mode: 'index', intersect: false },
+        plugins: {
+          legend: { labels: { color: TEXT, usePointStyle: true } },
+          tooltip: {
+            backgroundColor: '#1c1c21', borderColor: '#2a2a32', borderWidth: 1,
+            callbacks: { label: ctx => ctx.dataset.label + ': $' + ctx.parsed.y.toLocaleString() }
+          }
+        },
+        scales: {
+          x: { grid: { color: GRID }, ticks: { color: MUTED, maxRotation: 0, autoSkip: true } },
+          y: { grid: { color: GRID }, ticks: { color: MUTED, callback: v => '$' + v } }
+        }
+      }
+    });
+  })();
+
+  // ── Horizontal bar chart helper ────────────────────────────────
+  function horizontalBar(canvasId, labels, values, color, valuePrefix) {
+    const ctx = document.getElementById(canvasId);
+    if (!ctx) return;
+    if (!values.length) {
+      ctx.parentElement.innerHTML = '<div class="empty-chart">No data yet.</div>';
+      return;
+    }
+    new Chart(ctx, {
+      type: 'bar',
+      data: {
+        labels,
+        datasets: [{
+          data: values,
+          backgroundColor: color,
+          borderRadius: 6,
+          maxBarThickness: 26,
+        }]
+      },
+      options: {
+        indexAxis: 'y',
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: { display: false },
+          tooltip: {
+            backgroundColor: '#1c1c21',
+            borderColor: '#2a2a32',
+            borderWidth: 1,
+            callbacks: { label: ctx => (valuePrefix || '') + (valuePrefix ? ctx.parsed.x.toLocaleString() : Math.round(ctx.parsed.x).toLocaleString()) }
+          }
+        },
+        scales: {
+          x: { grid: { color: GRID }, ticks: { color: MUTED, precision: 0, callback: v => (valuePrefix || '') + v } },
+          y: { grid: { display: false }, ticks: { color: TEXT } }
+        }
+      }
+    });
+  }
+
+  horizontalBar('topSellersChart', data.top_sellers.labels, data.top_sellers.values, ACCENT, '');
+  horizontalBar('viewsChart',      data.most_viewed.labels, data.most_viewed.values, '#3ea6ff', '');
+  horizontalBar('usersChart',      data.active_users.labels, data.active_users.spent, '#00d68f', '$');
+
+  // ── Category — grouped bar (revenue vs cost vs profit) ────────
+  (function() {
+    const ctx = document.getElementById('categoryChart');
+    if (!ctx) return;
+    if (!data.category_revenue.values.length) {
+      ctx.parentElement.innerHTML = '<div class="empty-chart">No data yet.</div>';
+      return;
+    }
+    new Chart(ctx, {
+      type: 'bar',
+      data: {
+        labels: data.category_revenue.labels,
+        datasets: [
+          {
+            label: 'Revenue',
+            data: data.category_revenue.values,
+            backgroundColor: ACCENT,
+            borderRadius: 4,
+          },
+          {
+            label: 'Cost',
+            data: data.category_revenue.cost,
+            backgroundColor: '#ef4444',
+            borderRadius: 4,
+          },
+          {
+            label: 'Profit',
+            data: data.category_revenue.profit,
+            backgroundColor: '#00d68f',
+            borderRadius: 4,
+          },
+        ]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: { labels: { color: TEXT, usePointStyle: true } },
+          tooltip: {
+            backgroundColor: '#1c1c21', borderColor: '#2a2a32', borderWidth: 1,
+            callbacks: { label: ctx => ctx.dataset.label + ': $' + ctx.parsed.y.toLocaleString() }
+          }
+        },
+        scales: {
+          x: { grid: { display: false }, ticks: { color: TEXT } },
+          y: { grid: { color: GRID }, ticks: { color: MUTED, callback: v => '$' + v } }
+        }
+      }
+    });
+  })();
+</script>
+{% endblock %}

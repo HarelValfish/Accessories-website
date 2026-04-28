@@ -11,6 +11,7 @@
       <p class="admin-sub">Manage products, stock levels, and pricing.</p>
     </div>
     <div class="admin-actions">
+      <a href="{{ url_for('admin.admin_analytics') }}" class="btn-secondary">Analytics</a>
       <a href="{{ url_for('admin.admin_users') }}" class="btn-secondary">Users</a>
       <a href="{{ url_for('admin.admin_orders') }}" class="btn-secondary">Orders</a>
       <a href="{{ url_for('admin.new_item') }}" class="btn-primary">+ New Item</a>
