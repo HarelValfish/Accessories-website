@@ -26,9 +26,12 @@ items_collection      = db["items"]         # product inventory
 users_collection      = db["users"]         # user accounts
 orders_collection     = db["orders"]        # order history
 categories_collection = db["categories"]    # product categories
+views_collection      = db["item_views"]    # item click/view tracking
 
 # ── Create indexes for performance and uniqueness ──────────────────────────────
 users_collection.create_index("email", unique=True)
 orders_collection.create_index("user_id")
 orders_collection.create_index("order_number", unique=True)
 categories_collection.create_index("name")  # fast name lookup
+views_collection.create_index("item_id")
+views_collection.create_index("viewed_at")
