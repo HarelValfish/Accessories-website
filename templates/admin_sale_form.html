@@ -1,0 +1,167 @@
+{% extends "base.html" %}
+{% block title %}Manage Sale — {{ item['name'] }} — TechDen Admin{% endblock %}
+
+{% block content %}
+<div class="admin-page">
+  <div class="admin-header">
+    <div>
+      <h1 class="admin-title">Manage Sale</h1>
+      <p class="admin-sub">{{ item['name'] }} &mdash; Base price: <strong>${{ "%.2f"|format(item['price']) }}</strong></p>
+    </div>
+    <a href="{{ url_for('admin.dashboard') }}" class="btn-edit">← Back</a>
+  </div>
+
+  {% if item.get('sale_active') or item.get('sale_scheduled') %}
+  <div class="sale-status-banner {% if item.get('sale_active') %}sale-banner--active{% else %}sale-banner--scheduled{% endif %}">
+    {% if item.get('sale_active') %}
+    <span class="sale-status-dot"></span>
+    Sale active &mdash; <strong>{{ "%.0f"|format(item['sale_pct_off']) }}% off</strong> &rarr; ${{ "%.2f"|format(item['sale_price']) }}
+    {% else %}
+    <span class="sale-status-dot sale-status-dot--sched"></span>
+    Sale scheduled &mdash; <strong>{{ "%.0f"|format(item['sale_pct_off']) }}% off</strong> &rarr; ${{ "%.2f"|format(item['sale_price']) }}
+    {% endif %}
+    {% if sale_end_str %}
+    &nbsp;&bull;&nbsp; Ends {{ sale_end_str | replace('T', ' ') }} (Jerusalem time)
+    {% endif %}
+  </div>
+  {% endif %}
+
+  <div class="form-card" data-animate>
+    <form method="POST" id="saleForm">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
+      <input type="hidden" name="action" id="saleAction" value="set" />
+
+      <!-- Discount type -->
+      <div class="form-group">
+        <label class="field-label">Discount Type</label>
+        <div class="sale-type-row">
+          <label class="sale-type-opt">
+            <input type="radio" name="sale_type" value="percentage"
+                   {% if item.get('sale_type') == 'percentage' or not item.get('sale_type') %}checked{% endif %} />
+            <span class="sale-type-icon">%</span>
+            Percentage Off
+          </label>
+          <label class="sale-type-opt">
+            <input type="radio" name="sale_type" value="amount"
+                   {% if item.get('sale_type') == 'amount' %}checked{% endif %} />
+            <span class="sale-type-icon">$−</span>
+            Amount Off
+          </label>
+          <label class="sale-type-opt">
+            <input type="radio" name="sale_type" value="target_price"
+                   {% if item.get('sale_type') == 'target_price' %}checked{% endif %} />
+            <span class="sale-type-icon">=$</span>
+            Target Price
+          </label>
+        </div>
+      </div>
+
+      <!-- Value -->
+      <div class="form-row">
+        <div class="form-group">
+          <label class="field-label" id="saleValueLabel">Discount %</label>
+          <input type="number" name="sale_value" id="saleValueField" class="field-input"
+                 min="0" step="0.01"
+                 value="{{ item.get('sale_value', '') or '' }}"
+                 placeholder="e.g. 20" required />
+        </div>
+        <div class="form-group">
+          <label class="field-label">Sale Price Preview</label>
+          <p class="sale-preview" id="salePricePreview">
+            {% if item.get('sale_price') and item.get('sale_pct_off') %}
+              ${{ "%.2f"|format(item['sale_price']) }} ({{ "%.0f"|format(item['sale_pct_off']) }}% off)
+            {% else %}—{% endif %}
+          </p>
+        </div>
+      </div>
+
+      <!-- Dates -->
+      <div class="form-row">
+        <div class="form-group">
+          <label class="field-label">Sale Start <span class="field-hint-inline">(blank = starts now · Jerusalem time)</span></label>
+          <input type="datetime-local" name="sale_start" id="saleStartField" class="field-input"
+                 value="{{ sale_start_str }}" />
+        </div>
+        <div class="form-group">
+          <label class="field-label">Sale End <span class="field-hint-inline">(blank = no expiry · Jerusalem time)</span></label>
+          <input type="datetime-local" name="sale_end" id="saleEndField" class="field-input"
+                 value="{{ sale_end_str }}" />
+        </div>
+      </div>
+
+      <div class="form-actions" style="gap:0.75rem; flex-wrap:wrap;">
+        <button type="submit" class="btn-primary">Save Sale</button>
+        {% if item.get('sale_type') %}
+        <button type="button" class="btn-delete" id="clearSaleBtn">Remove Sale</button>
+        {% endif %}
+        <a href="{{ url_for('admin.dashboard') }}" class="btn-cancel">Cancel</a>
+      </div>
+    </form>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+  const basePrice = {{ item['price'] | tojson }};
+  const typeRadios = document.querySelectorAll('input[name="sale_type"]');
+  const valueField = document.getElementById('saleValueField');
+  const valueLabel = document.getElementById('saleValueLabel');
+  const preview    = document.getElementById('salePricePreview');
+
+  const labels = {
+    percentage:   'Discount %',
+    amount:       'Amount Off ($)',
+    target_price: 'Target Price ($)',
+  };
+
+  const placeholders = {
+    percentage:   'e.g. 20',
+    amount:       'e.g. 10.00',
+    target_price: 'e.g. 29.99',
+  };
+
+  function selectedType() {
+    return [...typeRadios].find(r => r.checked)?.value || 'percentage';
+  }
+
+  function updatePreview() {
+    const type = selectedType();
+    const val  = parseFloat(valueField.value) || 0;
+    valueLabel.textContent   = labels[type]       || 'Value';
+    valueField.placeholder   = placeholders[type] || '';
+
+    if (val <= 0) { preview.textContent = '—'; return; }
+
+    let salePrice, pctOff;
+    if (type === 'percentage') {
+      pctOff    = Math.min(val, 100);
+      salePrice = basePrice * (1 - pctOff / 100);
+    } else if (type === 'amount') {
+      salePrice = Math.max(0, basePrice - val);
+      pctOff    = basePrice > 0 ? ((basePrice - salePrice) / basePrice) * 100 : 0;
+    } else {
+      salePrice = val;
+      pctOff    = basePrice > 0 ? ((basePrice - salePrice) / basePrice) * 100 : 0;
+    }
+
+    if (salePrice >= basePrice && type !== 'target_price') {
+      preview.textContent = '—';
+    } else {
+      preview.textContent = `$${salePrice.toFixed(2)} (${pctOff.toFixed(0)}% off)`;
+    }
+  }
+
+  typeRadios.forEach(r => r.addEventListener('change', updatePreview));
+  valueField.addEventListener('input', updatePreview);
+  updatePreview();
+
+  {% if item.get('sale_type') %}
+  document.getElementById('clearSaleBtn').addEventListener('click', () => {
+    if (!confirm('Remove the sale from this item?')) return;
+    document.getElementById('saleAction').value = 'clear';
+    document.getElementById('saleForm').submit();
+  });
+  {% endif %}
+</script>
+{% endblock %}

@@ -6,12 +6,14 @@ Separate from admin authentication to maintain clear separation of concerns.
 """
 
 import secrets
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from functools import wraps
 from flask import session, redirect, url_for, request
 from bson import ObjectId
 
 from database import users_collection
+
+USER_TIMEOUT = timedelta(minutes=30)
 
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -39,7 +41,7 @@ def get_current_user():
 def user_login_required(f):
     """
     Decorator to protect routes that require user authentication.
-    Redirects to login page if user is not logged in.
+    Redirects to login page if user is not logged in or session has timed out.
 
     Usage:
         @app.route("/account")
@@ -51,6 +53,19 @@ def user_login_required(f):
     def decorated_function(*args, **kwargs):
         if "user_id" not in session:
             return redirect(url_for("user.login", next=request.path))
+
+        # 30-minute inactivity timeout
+        last_seen_str = session.get("user_last_seen")
+        if last_seen_str:
+            last_seen = datetime.fromisoformat(last_seen_str)
+            if last_seen.tzinfo is None:
+                last_seen = last_seen.replace(tzinfo=timezone.utc)
+            if datetime.now(timezone.utc) - last_seen > USER_TIMEOUT:
+                session.pop("user_id", None)
+                session.pop("user_last_seen", None)
+                return redirect(url_for("user.login", next=request.path, expired=1))
+        # Reset timer on every protected page visit
+        session["user_last_seen"] = datetime.now(timezone.utc).isoformat()
         return f(*args, **kwargs)
     return decorated_function
 
@@ -65,7 +80,7 @@ def generate_verification_token():
     Returns a tuple of (token, expiration_datetime).
     """
     token = secrets.token_urlsafe(32)  # 43-char URL-safe string
-    expires_at = datetime.utcnow() + timedelta(hours=24)  # 24-hour expiration
+    expires_at = datetime.now(timezone.utc).replace(tzinfo=None) + timedelta(hours=24)
     return token, expires_at
 
 
@@ -83,7 +98,8 @@ def verify_token(token: str) -> dict | None:
         return None
 
     # Check if token has expired
-    if user.get("token_expires_at") and user["token_expires_at"] < datetime.utcnow():
+    now_naive = datetime.now(timezone.utc).replace(tzinfo=None)
+    if user.get("token_expires_at") and user["token_expires_at"] < now_naive:
         return None
 
     return user

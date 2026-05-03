@@ -10,7 +10,8 @@ No database access here — auth is purely session-based.
 """
 
 import os
-from datetime import datetime, timedelta
+import hmac
+from datetime import datetime, timedelta, timezone
 from functools import wraps
 from flask import session, redirect, url_for
 
@@ -51,7 +52,9 @@ def login_required(f):
         last_seen_str = session.get("admin_last_seen")
         if last_seen_str:
             last_seen = datetime.fromisoformat(last_seen_str)
-            if datetime.utcnow() - last_seen > TIMEOUT:
+            if last_seen.tzinfo is None:
+                last_seen = last_seen.replace(tzinfo=timezone.utc)
+            if datetime.now(timezone.utc) - last_seen > TIMEOUT:
                 session.pop("admin_logged_in", None)
                 session.pop("admin_last_seen", None)
                 return redirect(url_for("auth.admin_login", expired=1))
@@ -61,7 +64,7 @@ def login_required(f):
             return redirect(url_for("auth.admin_login", expired=1))
 
         # Reset the timer on every admin page visit
-        session["admin_last_seen"] = datetime.utcnow().isoformat()
+        session["admin_last_seen"] = datetime.now(timezone.utc).isoformat()
         return f(*args, **kwargs)
     return decorated_function
 
@@ -78,4 +81,4 @@ def check_password(entered: str) -> bool:
     Note: For production, consider using werkzeug.security.check_password_hash
     instead of plain string comparison.
     """
-    return entered == ADMIN_PASSWORD  # simple equality check
+    return hmac.compare_digest(entered, ADMIN_PASSWORD)

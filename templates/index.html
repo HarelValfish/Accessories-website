@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% from "macros/product_card.html" import product_card %}
 {% block title %}TechDen — Computer Accessories{% endblock %}
 
 {% block bg_logo %}
@@ -56,56 +57,7 @@
   {% if items %}
   <div class="product-grid">
     {% for item in items %}
-    {# Build slideshow image list: primary + gallery + per-color images #}
-    {% set slide = namespace(imgs=[]) %}
-    {% if item.get('image_url') %}{% set slide.imgs = slide.imgs + [item['image_url']] %}{% endif %}
-    {% for img in item.get('images', []) if img %}{% set slide.imgs = slide.imgs + [img] %}{% endfor %}
-    {% for c in item.get('colors', []) if c.get('image_url') %}{% set slide.imgs = slide.imgs + [c['image_url']] %}{% endfor %}
-    <article class="product-card" data-index="{{ loop.index0 }}" data-images="{{ slide.imgs | tojson | forceescape }}">
-      <div class="card-image-wrap">
-        <a href="{{ url_for('public.item_detail', item_id=item['_id']) }}" class="card-image-link">
-          <img src="{{ item.get('image_url', 'https://picsum.photos/640/400') }}"
-               alt="{{ item['name'] }}"
-               class="card-image"
-               loading="lazy"
-               onerror="this.src='https://picsum.photos/seed/default/640/400'" />
-        </a>
-        {% if slide.imgs | length > 1 %}
-        <button type="button" class="slide-arrow slide-arrow--prev" aria-label="Previous image">&#8249;</button>
-        <button type="button" class="slide-arrow slide-arrow--next" aria-label="Next image">&#8250;</button>
-        {% endif %}
-      </div>
-      <div class="card-body">
-        <span class="card-category">{{ item.get('category', '') }}</span>
-        <h2 class="card-title">{{ item['name'] }}</h2>
-        <p class="card-desc">{{ item['description'][:80] }}{% if item['description']|length > 80 %}…{% endif %}</p>
-        <div class="card-footer">
-          <span class="card-price">${{ "%.2f"|format(item['price']) }}</span>
-          <button class="btn-add-cart" data-item-id="{{ item['_id'] }}" {% if item.get('stock', 0) == 0 %}disabled{% endif %}>
-            {% if item.get('stock', 0) == 0 %}Out of Stock{% else %}Add to Cart{% endif %}
-          </button>
-        </div>
-        <div class="card-meta">
-          {% if item.get('colors_enabled') and item.get('colors') %}
-          <div class="card-color-dots">
-            {% for color in item['colors'][:5] %}
-            <span class="card-color-dot" style="background:{{ color['hex'] }}" title="{{ color['name'] }}"></span>
-            {% endfor %}
-            {% if item['colors']|length > 5 %}
-            <span class="card-color-more">+{{ item['colors']|length - 5 }}</span>
-            {% endif %}
-          </div>
-          {% endif %}
-          {% if item.get('stock', 0) <= 5 and item.get('stock', 0) > 0 %}
-            <span class="stock-badge stock-low">Only {{ item['stock'] }} left</span>
-          {% elif item.get('stock', 0) == 0 %}
-            <span class="stock-badge stock-out">Out of stock</span>
-          {% else %}
-            <span class="stock-badge stock-ok">In stock</span>
-          {% endif %}
-        </div>
-      </div>
-    </article>
+    {{ product_card(item, loop.index0) }}
     {% endfor %}
   </div>
 
@@ -116,6 +68,18 @@
     <a href="{{ url_for('public.index') }}" class="btn-primary">Clear filters</a>
   </div>
   {% endif %}
+</section>
+
+<!-- ── ABOUT TEASER ──────────────────────────────────────────────────── -->
+<section class="about-teaser" data-animate>
+  <div class="about-teaser-inner">
+    <div class="about-teaser-text">
+      <p class="hero-eyebrow">Who we are</p>
+      <h2 class="about-teaser-heading">Built by enthusiasts,<br>for <span class="accent">power users</span>.</h2>
+      <p class="about-teaser-sub">We source and test every accessory ourselves — no filler, no compromises. Read our story.</p>
+    </div>
+    <a href="{{ url_for('public.about') }}" class="btn-primary about-teaser-btn">Read our story →</a>
+  </div>
 </section>
 {% endblock %}
 

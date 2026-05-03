@@ -63,7 +63,11 @@
 <footer class="site-footer">
   <div class="footer-inner">
     <span class="logo-text footer-logo">TECH<strong>DEN</strong></span>
-    <p>Premium computer accessories &amp; gadgets. All rights reserved © 2024.</p>
+    <nav class="footer-nav">
+      <a href="{{ url_for('public.index') }}" class="footer-link">Shop</a>
+      <a href="{{ url_for('public.about') }}" class="footer-link">About Us</a>
+    </nav>
+    <p class="footer-copy">Premium computer accessories &amp; gadgets. All rights reserved &copy; 2025.</p>
   </div>
 </footer>
 

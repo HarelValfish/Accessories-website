@@ -53,10 +53,12 @@ def add_to_cart(item_id: str, quantity: int = 1, selected_color: str = None) -> 
             cart_color = None
         if cart_item["item_id"] == item_id and cart_color == selected_color:
             new_quantity = cart_item["quantity"] + quantity
-            # Check if new quantity exceeds stock
             if new_quantity > available_stock:
                 return {"success": False, "error": f"Only {available_stock} in stock"}
             cart_item["quantity"] = new_quantity
+            # Refresh price in case sale started/ended since item was last added
+            effective_price = item.get("sale_price", item["price"]) if item.get("sale_active") else item["price"]
+            cart_item["price"] = effective_price
             session.modified = True
             return {"success": True, "message": "Quantity updated"}
 
@@ -64,11 +66,12 @@ def add_to_cart(item_id: str, quantity: int = 1, selected_color: str = None) -> 
     if quantity > available_stock:
         return {"success": False, "error": f"Only {available_stock} in stock"}
 
-    # Add new item to cart
+    # Add new item to cart — use discounted price if sale is active
+    effective_price = item.get("sale_price", item["price"]) if item.get("sale_active") else item["price"]
     cart_item = {
         "item_id": item_id,
         "name": item["name"],
-        "price": item["price"],
+        "price": effective_price,
         "quantity": quantity,
         "image_url": item.get("image_url", ""),
         "selected_color": selected_color,

@@ -6,7 +6,7 @@ Format: ORD-YYYYMMDD-XXXX (e.g., ORD-20260426-A3F9)
 """
 
 import secrets
-from datetime import datetime
+from datetime import datetime, timezone
 
 
 def generate_order_number() -> str:
@@ -17,7 +17,7 @@ def generate_order_number() -> str:
     The random suffix makes it extremely unlikely to have collisions,
     and the database index ensures uniqueness.
     """
-    date_part = datetime.utcnow().strftime("%Y%m%d")  # e.g., 20260426
+    date_part = datetime.now(timezone.utc).strftime("%Y%m%d")  # e.g., 20260426
     random_part = secrets.token_hex(2).upper()        # e.g., A3F9 (4 hex chars)
 
     return f"ORD-{date_part}-{random_part}"

@@ -5,7 +5,7 @@ User and order CRUD operations for MongoDB.
 Handles user registration, authentication, and order management.
 """
 
-from datetime import datetime
+from datetime import datetime, timezone
 from bson import ObjectId
 
 from database import users_collection, orders_collection
@@ -26,7 +26,7 @@ def create_user(email: str, password_hash: str) -> str:
     document = {
         "email": email.lower().strip(),  # normalize email
         "password_hash": password_hash,
-        "created_at": datetime.utcnow(),
+        "created_at": datetime.now(timezone.utc).replace(tzinfo=None),
         "is_verified": False,            # require email verification
         "verification_token": token,
         "token_expires_at": expires_at,
@@ -153,8 +153,8 @@ def create_order(user_id: str, cart_items: list, shipping_address: dict, order_n
         "total": total,
         "status": "pending",  # pending, confirmed, shipped, delivered
         "shipping_address": shipping_address,
-        "created_at": datetime.utcnow(),
-        "updated_at": datetime.utcnow(),
+        "created_at": datetime.now(timezone.utc).replace(tzinfo=None),
+        "updated_at": datetime.now(timezone.utc).replace(tzinfo=None),
     }
 
     result = orders_collection.insert_one(document)
@@ -203,8 +203,24 @@ def get_all_orders() -> list:
     return orders
 
 
+def update_order_status(order_id: str, status: str) -> bool:
+    """Update order status and return the updated order dict, or None on failure."""
+    try:
+        result = orders_collection.find_one_and_update(
+            {"_id": ObjectId(order_id)},
+            {"$set": {"status": status, "updated_at": datetime.now(timezone.utc).replace(tzinfo=None)}},
+            return_document=True,
+        )
+        if result:
+            result["_id"] = str(result["_id"])
+            result["user_id"] = str(result["user_id"])
+        return result
+    except Exception:
+        return None
+
+
 def update_user(user_id: str, email: str, password_hash: str = None, is_verified: bool = None) -> bool:
-    updates = {"email": email.lower().strip(), "updated_at": datetime.utcnow()}
+    updates = {"email": email.lower().strip(), "updated_at": datetime.now(timezone.utc).replace(tzinfo=None)}
     if password_hash is not None:
         updates["password_hash"] = password_hash
     if is_verified is not None:
@@ -227,22 +243,3 @@ def delete_user(user_id: str) -> bool:
         return False
 
 
-def update_order_status(order_id: str, status: str) -> bool:
-    """
-    Update the status of an order (admin function).
-    Valid statuses: pending, confirmed, shipped, delivered.
-    Returns True if successful.
-    """
-    try:
-        result = orders_collection.update_one(
-            {"_id": ObjectId(order_id)},
-            {
-                "$set": {
-                    "status": status,
-                    "updated_at": datetime.utcnow(),
-                }
-            }
-        )
-        return result.modified_count > 0
-    except Exception:
-        return False

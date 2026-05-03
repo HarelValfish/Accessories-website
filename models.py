@@ -13,7 +13,7 @@ import os
 import re
 import requests
 from bson import ObjectId
-from datetime import datetime
+from datetime import datetime, timezone
 from ddgs import DDGS
 
 from database import items_collection, categories_collection
@@ -23,15 +23,93 @@ UNSPLASH_ACCESS_KEY = os.environ.get("UNSPLASH_ACCESS_KEY", "")
 
 
 # ══════════════════════════════════════════════════════════════════════════════
+#  SALE HELPERS
+# ══════════════════════════════════════════════════════════════════════════════
+
+def get_sale_info(item: dict) -> dict:
+    """Compute effective sale state for an item based on current UTC time."""
+    sale_type  = item.get("sale_type") or ""
+    sale_value = item.get("sale_value") or 0
+    sale_start = item.get("sale_start")
+    sale_end   = item.get("sale_end")
+    price      = float(item.get("price") or 0)
+
+    empty = {"active": False, "scheduled": False, "pct_off": 0.0,
+             "sale_price": price, "original_price": price}
+
+    if not sale_type or float(sale_value) <= 0:
+        return empty
+
+    now = datetime.now(timezone.utc).replace(tzinfo=None)
+
+    if sale_end and now >= sale_end:
+        return empty
+
+    pv = float(sale_value)
+    if sale_type == "percentage":
+        pct_off    = min(pv, 100.0)
+        sale_price = round(price * (1.0 - pct_off / 100.0), 2)
+    elif sale_type == "amount":
+        sale_price = max(0.0, round(price - pv, 2))
+        pct_off    = round((price - sale_price) / price * 100.0, 1) if price > 0 else 0.0
+    elif sale_type == "target_price":
+        sale_price = round(pv, 2)
+        pct_off    = round((price - sale_price) / price * 100.0, 1) if price > 0 else 0.0
+    else:
+        return empty
+
+    if sale_start and now < sale_start:
+        return {"active": False, "scheduled": True, "pct_off": pct_off,
+                "sale_price": sale_price, "original_price": price}
+
+    return {"active": True, "scheduled": False, "pct_off": pct_off,
+            "sale_price": sale_price, "original_price": price}
+
+
+def set_item_sale(item_id: str, sale_type: str, sale_value: float,
+                  sale_start: datetime = None, sale_end: datetime = None) -> bool:
+    try:
+        result = items_collection.update_one(
+            {"_id": ObjectId(item_id)},
+            {"$set": {
+                "sale_type":  sale_type,
+                "sale_value": float(sale_value),
+                "sale_start": sale_start,
+                "sale_end":   sale_end,
+            }}
+        )
+        return result.modified_count > 0
+    except Exception:
+        return False
+
+
+def clear_item_sale(item_id: str) -> bool:
+    try:
+        result = items_collection.update_one(
+            {"_id": ObjectId(item_id)},
+            {"$unset": {"sale_type": "", "sale_value": "", "sale_start": "", "sale_end": ""}}
+        )
+        return result.modified_count > 0
+    except Exception:
+        return False
+
+
+# ══════════════════════════════════════════════════════════════════════════════
 #  SERIALIZATION HELPER
 # ══════════════════════════════════════════════════════════════════════════════
 
 def serialize_item(item: dict) -> dict:
-    """Convert ObjectId fields to strings so they can be used in templates/JSON."""
+    """Convert ObjectId fields to strings and attach computed sale fields."""
     if item and "_id" in item:
         item["_id"] = str(item["_id"])
     if item and item.get("category_id"):
         item["category_id"] = str(item["category_id"])
+    if item:
+        sale_info = get_sale_info(item)
+        item["sale_active"]    = sale_info["active"]
+        item["sale_scheduled"] = sale_info["scheduled"]
+        item["sale_pct_off"]   = sale_info["pct_off"]
+        item["sale_price"]     = sale_info["sale_price"]
     return item
 
 
@@ -45,8 +123,8 @@ def get_all_items(category: str = "", search: str = "") -> list:
         query["category"] = category
     if search:
         query["$or"] = [
-            {"name":        {"$regex": search, "$options": "i"}},
-            {"description": {"$regex": search, "$options": "i"}},
+            {"name":        {"$regex": re.escape(search), "$options": "i"}},
+            {"description": {"$regex": re.escape(search), "$options": "i"}},
         ]
     items = list(items_collection.find(query))
     return [serialize_item(item) for item in items]
@@ -118,7 +196,9 @@ def _resolve_category(category_id: str) -> tuple:
 def create_item(name: str, description: str, category_id: str,
                 price: float, stock: int, image_url: str,
                 colors_enabled: bool = False, colors: list = None,
-                images: list = None, cost: float = 0.0) -> str:
+                images: list = None, cost: float = 0.0,
+                sale_type: str = "", sale_value: float = 0.0,
+                sale_start: datetime = None, sale_end: datetime = None) -> str:
     if not image_url:
         image_url = fetch_image(name, description)
 
@@ -136,7 +216,11 @@ def create_item(name: str, description: str, category_id: str,
         "images":         [u for u in (images or []) if u],
         "colors_enabled": colors_enabled,
         "colors":         colors or [],
-        "created_at":     datetime.utcnow(),
+        "sale_type":      sale_type or None,
+        "sale_value":     float(sale_value) if sale_value else None,
+        "sale_start":     sale_start,
+        "sale_end":       sale_end,
+        "created_at":     datetime.now(timezone.utc).replace(tzinfo=None),
     }
 
     result = items_collection.insert_one(document)
@@ -150,7 +234,9 @@ def create_item(name: str, description: str, category_id: str,
 def update_item(item_id: str, name: str, description: str, category_id: str,
                 price: float, stock: int, image_url: str,
                 colors_enabled: bool = False, colors: list = None,
-                images: list = None, cost: float = 0.0) -> bool:
+                images: list = None, cost: float = 0.0,
+                sale_type: str = "", sale_value: float = 0.0,
+                sale_start: datetime = None, sale_end: datetime = None) -> bool:
     if not image_url:
         image_url = fetch_image(name, description)
 
@@ -168,7 +254,11 @@ def update_item(item_id: str, name: str, description: str, category_id: str,
         "images":         [u for u in (images or []) if u],
         "colors_enabled": colors_enabled,
         "colors":         colors or [],
-        "updated_at":     datetime.utcnow(),
+        "sale_type":      sale_type or None,
+        "sale_value":     float(sale_value) if sale_value else None,
+        "sale_start":     sale_start,
+        "sale_end":       sale_end,
+        "updated_at":     datetime.now(timezone.utc).replace(tzinfo=None),
     }
 
     result = items_collection.update_one(
@@ -219,8 +309,6 @@ def fetch_images(name: str, description: str, count: int = 3) -> list[str]:
     query = f"{name} computer accessory product"
     urls: list[str] = []
 
-    print(f"[fetch_images] key loaded: {repr(UNSPLASH_ACCESS_KEY[:8])}..." if UNSPLASH_ACCESS_KEY else "[fetch_images] key is EMPTY")
-
     if UNSPLASH_ACCESS_KEY and UNSPLASH_ACCESS_KEY != "your_unsplash_access_key_here":
         try:
             response = requests.get(
@@ -233,12 +321,10 @@ def fetch_images(name: str, description: str, count: int = 3) -> list[str]:
                 },
                 timeout=5,
             )
-            print(f"[fetch_images] Unsplash status: {response.status_code}")
             results = response.json().get("results", [])
             urls = [r["urls"]["regular"] for r in results[:count]]
-            print(f"[fetch_images] Unsplash returned {len(urls)} URLs")
-        except Exception as e:
-            print(f"[models] Unsplash fetch failed: {e}")
+        except Exception:
+            pass
 
     if len(urls) < count:
         try:
@@ -250,8 +336,8 @@ def fetch_images(name: str, description: str, count: int = 3) -> list[str]:
                         urls.append(url)
                     if len(urls) >= count:
                         break
-        except Exception as e:
-            print(f"[models] DuckDuckGo image fetch failed: {e}")
+        except Exception:
+            pass
 
     while len(urls) < count:
         seed = abs(hash(name + str(len(urls)))) % 1000
@@ -293,7 +379,7 @@ def seed_demo_data():
         cat = cat_map.get(item["category"], {})
         item["category_id"] = ObjectId(cat["id"]) if cat.get("id") else None
         item["image_url"]   = fetch_image(item["name"], item["description"])
-        item["created_at"]  = datetime.utcnow()
+        item["created_at"]  = datetime.now(timezone.utc).replace(tzinfo=None)
 
     items_collection.insert_many(demo_items)
     print("✅ [models] Demo data seeded into MongoDB.")

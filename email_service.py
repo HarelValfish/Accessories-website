@@ -6,6 +6,7 @@ Email sending utilities for user verification and order confirmations.
 
 from flask import current_app, request
 from flask_mail import Mail, Message
+from html import escape
 
 
 def _mail() -> Mail:
@@ -36,10 +37,39 @@ def send_verification_email(email: str, token: str):
     _mail().send(msg)
 
 
+def send_order_status_update(email: str, order: dict):
+    status = order.get("status", "updated")
+    status_messages = {
+        "confirmed": ("Order Confirmed", "Great news — your order has been confirmed and is being prepared."),
+        "shipped": ("Order Shipped", "Your order is on its way!"),
+        "delivered": ("Order Delivered", "Your order has been delivered. We hope you enjoy your purchase!"),
+        "pending": ("Order Pending", "Your order status has been updated to pending."),
+    }
+    subject_suffix, blurb = status_messages.get(status, ("Status Updated", f"Your order status is now: {escape(status)}."))
+
+    safe_order_number = escape(order['order_number'])
+    safe_status = escape(status)
+
+    msg = Message(
+        subject=f"{subject_suffix} — {order['order_number']}",
+        recipients=[email],
+        html=f"""
+        <div style="font-family:sans-serif;max-width:520px;margin:auto">
+          <h2 style="color:#ff6a00">{subject_suffix}</h2>
+          <p>{blurb}</p>
+          <p><strong>Order #:</strong> {safe_order_number}</p>
+          <p><strong>Status:</strong> <span style="text-transform:capitalize;font-weight:600">{safe_status}</span></p>
+          <p style="color:#888;font-size:0.85rem">Thank you for shopping at TechDen!</p>
+        </div>
+        """,
+    )
+    _mail().send(msg)
+
+
 def send_order_confirmation(email: str, order: dict):
     items_html = "".join(
         f"<tr>"
-        f"<td style='padding:6px 12px'>{item['name']}</td>"
+        f"<td style='padding:6px 12px'>{escape(item['name'])}</td>"
         f"<td style='padding:6px 12px;text-align:center'>×{item['quantity']}</td>"
         f"<td style='padding:6px 12px;text-align:right'>${item['price'] * item['quantity']:.2f}</td>"
         f"</tr>"
@@ -51,10 +81,10 @@ def send_order_confirmation(email: str, order: dict):
       <div style="margin:1.5rem 0;padding:1rem;background:#f9f9f9;border-radius:8px;border-left:3px solid #ff6a00">
         <p style="margin:0 0 0.5rem;font-weight:600;color:#333">Shipping To</p>
         <p style="margin:0;color:#555;line-height:1.6">
-          {addr.get('name', '')}<br>
-          {addr.get('address', '')}<br>
-          {addr.get('city', '')}, {addr.get('state', '')} {addr.get('zip', '')}<br>
-          {addr.get('country', '')}
+          {escape(addr.get('name', ''))}<br>
+          {escape(addr.get('address', ''))}<br>
+          {escape(addr.get('city', ''))}, {escape(addr.get('state', ''))} {escape(addr.get('zip', ''))}<br>
+          {escape(addr.get('country', ''))}
         </p>
       </div>
     """ if addr else ""

@@ -177,6 +177,71 @@
         </div>
       </div>
 
+      <!-- Sale / Discount -->
+      <div class="form-group" id="saleSectionWrap">
+        <div class="color-toggle-row">
+          <label class="field-label" style="margin:0">Sale / Discount</label>
+          <label class="toggle-switch">
+            <input type="checkbox" id="saleEnabledCheck"
+                   {% if item and item.get('sale_type') %}checked{% endif %} />
+            <span class="toggle-slider"></span>
+          </label>
+          <span class="toggle-label" id="saleToggleLabel">
+            {{ 'Enabled' if item and item.get('sale_type') else 'Disabled' }}
+          </span>
+        </div>
+
+        {# Hidden field — JS keeps it synced; cleared to "" when toggle is off #}
+        <input type="hidden" name="sale_type" id="saleTypeHidden"
+               value="{{ item.get('sale_type', '') if item else '' }}" />
+
+        <div id="salePicker" style="{% if not item or not item.get('sale_type') %}display:none{% endif %}; margin-top:1rem;">
+          <div class="sale-type-row">
+            <label class="sale-type-opt">
+              <input type="radio" id="saleRadioPct" name="_sale_type_radio" value="percentage"
+                     {% if not item or item.get('sale_type','') not in ('amount','target_price') %}checked{% endif %} />
+              <span class="sale-type-icon">%</span> % Off
+            </label>
+            <label class="sale-type-opt">
+              <input type="radio" id="saleRadioAmt" name="_sale_type_radio" value="amount"
+                     {% if item and item.get('sale_type') == 'amount' %}checked{% endif %} />
+              <span class="sale-type-icon">$−</span> $ Off
+            </label>
+            <label class="sale-type-opt">
+              <input type="radio" id="saleRadioTgt" name="_sale_type_radio" value="target_price"
+                     {% if item and item.get('sale_type') == 'target_price' %}checked{% endif %} />
+              <span class="sale-type-icon">=$</span> Target Price
+            </label>
+          </div>
+
+          <div class="form-row" style="margin-top:0.75rem;">
+            <div class="form-group">
+              <label class="field-label" id="saleValueLabelForm">Discount %</label>
+              <input type="number" name="sale_value" id="saleValueFieldForm" class="field-input"
+                     min="0" step="0.01" placeholder="e.g. 20"
+                     value="{{ item.get('sale_value', '') or '' if item else '' }}" />
+            </div>
+            <div class="form-group">
+              <label class="field-label">Sale Price Preview</label>
+              <p class="sale-preview" id="salePricePreviewForm">—</p>
+            </div>
+          </div>
+
+          <div class="form-row">
+            <div class="form-group">
+              <label class="field-label">Sale Start <span class="field-hint-inline">(blank = now · Jerusalem time)</span></label>
+              <input type="datetime-local" name="sale_start" id="saleStartFieldForm" class="field-input"
+                     value="{{ sale_start_str }}" />
+            </div>
+            <div class="form-group">
+              <label class="field-label">Sale End <span class="field-hint-inline">(blank = no expiry · Jerusalem time)</span></label>
+              <input type="datetime-local" name="sale_end" id="saleEndFieldForm" class="field-input"
+                     value="{{ sale_end_str }}" />
+            </div>
+          </div>
+        </div>
+      </div>
+
       <div class="form-actions">
         <button type="submit" class="btn-primary">{{ action }} Item</button>
         <a href="{{ url_for('admin.dashboard') }}" class="btn-cancel">Cancel</a>
@@ -578,7 +643,6 @@
       allCategories = await res.json();
     } catch { allCategories = []; }
 
-    // Match pre-filled name to an ID (edit mode / old items without category_id)
     if (!categoryId.value && prefilledName) {
       const match = allCategories.find(
         c => c.name.toLowerCase() === prefilledName.toLowerCase()
@@ -590,5 +654,71 @@
     }
   }
   loadCategories();
+
+  // ── Sale / Discount section ─────────────────────────────────────
+  const saleEnabledCheck  = document.getElementById('saleEnabledCheck');
+  const salePicker        = document.getElementById('salePicker');
+  const saleToggleLabel   = document.getElementById('saleToggleLabel');
+  const saleTypeHidden    = document.getElementById('saleTypeHidden');
+  const saleValueFieldF   = document.getElementById('saleValueFieldForm');
+  const saleValueLabelF   = document.getElementById('saleValueLabelForm');
+  const salePricePreviewF = document.getElementById('salePricePreviewForm');
+  const saleRadiosF       = document.querySelectorAll('input[name="_sale_type_radio"]');
+
+  const saleLabels = { percentage: 'Discount %', amount: 'Amount Off ($)', target_price: 'Target Price ($)' };
+  const salePlaceholders = { percentage: 'e.g. 20', amount: 'e.g. 10.00', target_price: 'e.g. 29.99' };
+
+  function getSaleType() {
+    return [...saleRadiosF].find(r => r.checked)?.value || 'percentage';
+  }
+
+  function updateSalePreview() {
+    const priceInput = document.getElementById('price');
+    const base = parseFloat(priceInput?.value) || 0;
+    const type = getSaleType();
+    const val  = parseFloat(saleValueFieldF?.value) || 0;
+
+    saleValueLabelF.textContent = saleLabels[type] || 'Value';
+    saleValueFieldF.placeholder = salePlaceholders[type] || '';
+
+    if (val <= 0 || base <= 0) { salePricePreviewF.textContent = '—'; return; }
+
+    let salePrice, pctOff;
+    if (type === 'percentage') {
+      pctOff    = Math.min(val, 100);
+      salePrice = base * (1 - pctOff / 100);
+    } else if (type === 'amount') {
+      salePrice = Math.max(0, base - val);
+      pctOff    = ((base - salePrice) / base) * 100;
+    } else {
+      salePrice = val;
+      pctOff    = ((base - salePrice) / base) * 100;
+    }
+    salePricePreviewF.textContent = `$${salePrice.toFixed(2)} (${pctOff.toFixed(0)}% off)`;
+    saleTypeHidden.value = saleEnabledCheck.checked ? getSaleType() : '';
+  }
+
+  saleEnabledCheck.addEventListener('change', () => {
+    const on = saleEnabledCheck.checked;
+    salePicker.style.display    = on ? 'block' : 'none';
+    saleToggleLabel.textContent = on ? 'Enabled' : 'Disabled';
+    saleTypeHidden.value        = on ? getSaleType() : '';
+    if (!on) {
+      saleValueFieldF.value = '';
+      document.getElementById('saleStartFieldForm').value = '';
+      document.getElementById('saleEndFieldForm').value   = '';
+      salePricePreviewF.textContent = '—';
+    }
+  });
+
+  saleRadiosF.forEach(r => r.addEventListener('change', () => {
+    saleTypeHidden.value = getSaleType();
+    updateSalePreview();
+  }));
+  saleValueFieldF.addEventListener('input', updateSalePreview);
+  document.getElementById('price').addEventListener('input', updateSalePreview);
+  // Sync hidden on load if toggle is on
+  if (saleEnabledCheck.checked) saleTypeHidden.value = getSaleType();
+  updateSalePreview();
 </script>
 {% endblock %}

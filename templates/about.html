@@ -1,0 +1,155 @@
+{% extends "base.html" %}
+{% block title %}About Us — TechDen{% endblock %}
+
+{% block bg_logo %}
+<div class="bg-logo" id="bgLogo" aria-hidden="true">
+  <svg viewBox="0 0 200 220" xmlns="http://www.w3.org/2000/svg">
+    <defs>
+      <linearGradient id="bgLogoGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+        <stop offset="0%"   stop-color="#ff6a00"/>
+        <stop offset="100%" stop-color="#ff9c47"/>
+      </linearGradient>
+    </defs>
+    <polygon points="100,6 192,56 192,164 100,214 8,164 8,56"
+             fill="none" stroke="url(#bgLogoGrad)" stroke-width="3"/>
+    <polygon points="100,26 175,68 175,152 100,194 25,152 25,68"
+             fill="none" stroke="url(#bgLogoGrad)" stroke-width="1.5" opacity="0.55"/>
+  </svg>
+</div>
+{% endblock %}
+
+{% block content %}
+
+<!-- ── HERO ─────────────────────────────────────────────────────────── -->
+<section class="about-hero">
+  <div class="hero-bg-grid"></div>
+  <div class="about-hero-inner">
+    <p class="hero-eyebrow">Our story</p>
+    <h1 class="about-title">Built for people who<br><span class="accent">care about their setup.</span></h1>
+    <p class="about-lead">TechDen started with a simple idea: the right peripheral makes all the difference. We obsess over every cable, adapter, and accessory so you don't have to.</p>
+  </div>
+</section>
+
+<!-- ── MISSION ───────────────────────────────────────────────────────── -->
+<section class="about-section" data-animate>
+  <div class="about-section-inner about-mission-grid">
+    <div class="about-mission-text">
+      <p class="section-eyebrow">Mission</p>
+      <h2 class="section-heading">Equip every desk.<br>Elevate every workflow.</h2>
+      <p class="about-body">We believe the workspace around your computer matters just as much as what's inside it. A reliable hub, a clean cable run, the perfect keyboard feel — these details add up. TechDen sources and curates products that meet a single bar: would we use it ourselves?</p>
+      <p class="about-body">No filler. No fluff. Just the gear that actually performs.</p>
+    </div>
+    <div class="about-mission-stat-col">
+      <div class="about-stat">
+        <span class="about-stat-num">100<span class="about-stat-plus">+</span></span>
+        <span class="about-stat-label">SKUs curated</span>
+      </div>
+      <div class="about-stat">
+        <span class="about-stat-num">2<span class="about-stat-plus">yr</span></span>
+        <span class="about-stat-label">Warranty on all products</span>
+      </div>
+      <div class="about-stat">
+        <span class="about-stat-num">24<span class="about-stat-plus">h</span></span>
+        <span class="about-stat-label">Support response time</span>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ── PILLARS ───────────────────────────────────────────────────────── -->
+<section class="about-section about-section--dark" data-animate>
+  <div class="about-section-inner">
+    <p class="section-eyebrow" style="text-align:center">What sets us apart</p>
+    <h2 class="section-heading" style="text-align:center;margin-bottom:2.5rem">The TechDen standard</h2>
+    <div class="about-pillars">
+
+      <div class="pillar-card" data-animate>
+        <div class="pillar-icon">
+          <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="20 6 9 17 4 12"/>
+          </svg>
+        </div>
+        <h3 class="pillar-title">Vetted quality</h3>
+        <p class="pillar-body">Every product in our catalogue goes through hands-on testing before it earns a listing. If we wouldn't recommend it to a friend, it doesn't ship.</p>
+      </div>
+
+      <div class="pillar-card" data-animate>
+        <div class="pillar-icon">
+          <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="12" r="10"/>
+            <polyline points="12 6 12 12 16 14"/>
+          </svg>
+        </div>
+        <h3 class="pillar-title">Fast shipping</h3>
+        <p class="pillar-body">Orders placed before 2 PM ship the same day. Free shipping on orders over $50, no hidden fees, no surprises at checkout.</p>
+      </div>
+
+      <div class="pillar-card" data-animate>
+        <div class="pillar-icon">
+          <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+          </svg>
+        </div>
+        <h3 class="pillar-title">2-year warranty</h3>
+        <p class="pillar-body">Every item is covered for two full years. Defects, failures, or anything short of what we promised — we make it right, no questions asked.</p>
+      </div>
+
+      <div class="pillar-card" data-animate>
+        <div class="pillar-icon">
+          <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
+            <circle cx="9" cy="7" r="4"/>
+            <path d="M23 21v-2a4 4 0 0 0-3-3.87"/>
+            <path d="M16 3.13a4 4 0 0 1 0 7.75"/>
+          </svg>
+        </div>
+        <h3 class="pillar-title">Real human support</h3>
+        <p class="pillar-body">No bots, no ticket queues that go nowhere. Our team reads every message and gets back to you within 24 hours with an actual answer.</p>
+      </div>
+
+    </div>
+  </div>
+</section>
+
+<!-- ── CONTACT ───────────────────────────────────────────────────────── -->
+<section class="about-section" data-animate>
+  <div class="about-section-inner about-contact-grid">
+    <div>
+      <p class="section-eyebrow">Get in touch</p>
+      <h2 class="section-heading">We'd love to hear from you.</h2>
+      <p class="about-body">Questions about a product, an order, or just want to talk setup? Reach out — we're a small team and we actually reply.</p>
+      <div class="contact-items">
+        <div class="contact-item">
+          <span class="contact-icon">✉</span>
+          <span>hello@techden.store</span>
+        </div>
+        <div class="contact-item">
+          <span class="contact-icon">⬡</span>
+          <span>@techden on all the usual channels</span>
+        </div>
+      </div>
+    </div>
+    <div class="about-cta-box">
+      <p class="about-cta-label">Ready to upgrade your setup?</p>
+      <a href="{{ url_for('public.index') }}" class="btn-primary about-cta-btn">Browse the shop</a>
+    </div>
+  </div>
+</section>
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+  const revealEls = document.querySelectorAll('.pillar-card[data-animate]');
+  const obs = new IntersectionObserver(entries => {
+    entries.forEach((entry, i) => {
+      if (entry.isIntersecting) {
+        entry.target.style.transitionDelay = (i * 0.1) + 's';
+        entry.target.classList.add('is-visible');
+        obs.unobserve(entry.target);
+      }
+    });
+  }, { threshold: 0.1 });
+  revealEls.forEach(el => obs.observe(el));
+</script>
+{% endblock %}

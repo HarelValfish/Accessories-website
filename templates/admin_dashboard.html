@@ -32,6 +32,10 @@
       <p class="stat-label">Low Stock Items</p>
       <p class="stat-val">{{ low_stock|length }}</p>
     </div>
+    <div class="stat-card {% if on_sale %}stat-sale{% endif %}">
+      <p class="stat-label">Items on Sale</p>
+      <p class="stat-val">{{ on_sale|length }}</p>
+    </div>
   </div>
 
   <!-- ── LOW STOCK ALERT ──────────────────────────────────────────────── -->
@@ -67,7 +71,18 @@
           <td class="mono text-muted">{{ item['_id'][:10] }}…</td>
           <td><strong>{{ item['name'] }}</strong></td>
           <td><span class="card-category">{{ item.get('category', '—') }}</span></td>
-          <td class="price-cell">${{ "%.2f"|format(item['price']) }}</td>
+          <td class="price-cell">
+            {% if item.get('sale_active') %}
+              <span class="price-original">${{ "%.2f"|format(item['price']) }}</span>
+              <span class="price-sale">${{ "%.2f"|format(item['sale_price']) }}</span>
+              <span class="sale-pct-badge">-{{ "%.0f"|format(item['sale_pct_off']) }}%</span>
+            {% elif item.get('sale_scheduled') %}
+              ${{ "%.2f"|format(item['price']) }}
+              <span class="sale-pct-badge sale-pct-badge--sched">Scheduled {{ "%.0f"|format(item['sale_pct_off']) }}% off</span>
+            {% else %}
+              ${{ "%.2f"|format(item['price']) }}
+            {% endif %}
+          </td>
           <td>
             {% if item.get('stock', 0) == 0 %}
               <span class="stock-badge stock-out">0</span>
@@ -80,6 +95,10 @@
           <td>
             <div class="actions-cell">
               <a href="{{ url_for('admin.edit_item', item_id=item['_id']) }}" class="btn-edit">Edit</a>
+              <a href="{{ url_for('admin.manage_sale', item_id=item['_id']) }}"
+                 class="btn-sale {% if item.get('sale_active') %}btn-sale--active{% elif item.get('sale_scheduled') %}btn-sale--sched{% endif %}">
+                {% if item.get('sale_active') %}Sale On{% elif item.get('sale_scheduled') %}Scheduled{% else %}Sale{% endif %}
+              </a>
               <form method="POST" action="{{ url_for('admin.refresh_image', item_id=item['_id']) }}"
                     style="display:inline;">
                 <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />

@@ -36,7 +36,31 @@
     <div class="detail-info" data-animate>
       <span class="card-category">{{ item.get('category', '') }}</span>
       <h1 class="detail-title">{{ item['name'] }}</h1>
+      {% if item.get('sale_active') %}
+      <div class="detail-price-wrap">
+        <span class="detail-price price-sale">${{ "%.2f"|format(item['sale_price']) }}</span>
+        <span class="detail-price price-original">${{ "%.2f"|format(item['price']) }}</span>
+        <span class="sale-pct-badge sale-pct-badge--lg">-{{ "%.0f"|format(item['sale_pct_off']) }}%</span>
+      </div>
+      {% if item.get('sale_end') %}
+      <div class="sale-timer" id="saleTimer"11
+           data-end="{{ item['sale_end'].strftime('%Y-%m-%dT%H:%M:%S') }}Z">
+        <span class="sale-timer-label">Sale ends in</span>
+        <div class="sale-timer-blocks">
+          <div class="timer-block"><span class="timer-val" id="timerDays">--</span><span class="timer-unit">d</span></div>
+          <span class="timer-sep">:</span>
+          <div class="timer-block"><span class="timer-val" id="timerHours">--</span><span class="timer-unit">h</span></div>
+          <span class="timer-sep">:</span>
+          <div class="timer-block"><span class="timer-val" id="timerMins">--</span><span class="timer-unit">m</span></div>
+          <span class="timer-sep">:</span>
+          <div class="timer-block"><span class="timer-val" id="timerSecs">--</span><span class="timer-unit">s</span></div>
+        </div>
+        <span class="sale-timer-abs" id="saleTimerAbs"></span>
+      </div>
+      {% endif %}
+      {% else %}
       <p class="detail-price">${{ "%.2f"|format(item['price']) }}</p>
+      {% endif %}
       <p class="detail-desc">{{ item['description'] }}</p>
 
       <div class="detail-meta">
@@ -193,5 +217,51 @@
       setTimeout(() => { btn.textContent = originalText; btn.disabled = false; }, 2000);
     }
   });
+
+  // ── Sale countdown timer ──────────────────────────────────────────
+  (function () {
+    const timer = document.getElementById('saleTimer');
+    if (!timer) return;
+
+    const endTime = new Date(timer.dataset.end).getTime();
+    const days  = document.getElementById('timerDays');
+    const hours = document.getElementById('timerHours');
+    const mins  = document.getElementById('timerMins');
+    const secs  = document.getElementById('timerSecs');
+    const absEl = document.getElementById('saleTimerAbs');
+
+    // Show the absolute end time in Jerusalem timezone
+    if (absEl) {
+      absEl.textContent = new Date(timer.dataset.end).toLocaleString('en-IL', {
+        timeZone:    'Asia/Jerusalem',
+        weekday:     'short',
+        month:       'short',
+        day:         'numeric',
+        hour:        '2-digit',
+        minute:      '2-digit',
+        timeZoneName:'short',
+      });
+    }
+
+    function pad(n) { return String(n).padStart(2, '0'); }
+
+    function tick() {
+      const diff = endTime - Date.now();
+      if (diff <= 0) {
+        timer.innerHTML = '<span class="sale-timer-expired">Sale has ended</span>';
+        return;
+      }
+      const totalSecs = Math.floor(diff / 1000);
+      days.textContent  = pad(Math.floor(totalSecs / 86400));
+      hours.textContent = pad(Math.floor((totalSecs % 86400) / 3600));
+      mins.textContent  = pad(Math.floor((totalSecs % 3600) / 60));
+      secs.textContent  = pad(totalSecs % 60);
+
+      if (diff < 3_600_000) timer.classList.add('sale-timer--urgent');
+    }
+
+    tick();
+    setInterval(tick, 1000);
+  })();
 </script>
 {% endblock %}

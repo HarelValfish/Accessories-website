@@ -10,7 +10,7 @@ Aggregates dashboard metrics from MongoDB:
   - Category revenue breakdown
 """
 
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from bson import ObjectId
 from collections import defaultdict
 
@@ -28,7 +28,7 @@ def record_item_view(item_id: str, user_id: str | None = None) -> None:
         views_collection.insert_one({
             "item_id":   item_id,
             "user_id":   ObjectId(user_id) if user_id else None,
-            "viewed_at": datetime.utcnow(),
+            "viewed_at": datetime.now(timezone.utc).replace(tzinfo=None),
         })
     except Exception:
         pass
@@ -52,7 +52,7 @@ def _order_cogs(order: dict, cost_map: dict) -> float:
 
 def sales_over_time(days: int = 30) -> dict:
     """Daily revenue, cost, profit, and order counts for the last `days` days."""
-    cutoff = datetime.utcnow() - timedelta(days=days - 1)
+    cutoff = datetime.now(timezone.utc).replace(tzinfo=None) - timedelta(days=days - 1)
     cutoff = cutoff.replace(hour=0, minute=0, second=0, microsecond=0)
 
     revenue = defaultdict(float)
