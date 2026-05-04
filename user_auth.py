@@ -20,7 +20,7 @@ USER_TIMEOUT = timedelta(minutes=30)
 #  SESSION HELPERS
 # ══════════════════════════════════════════════════════════════════════════════
 
-def get_current_user():
+def get_current_user() -> dict | None:
     """
     Get the currently logged-in user from the session.
     Returns the user document or None if not logged in.
@@ -32,7 +32,7 @@ def get_current_user():
     try:
         user = users_collection.find_one({"_id": ObjectId(user_id)})
         if user:
-            user["_id"] = str(user["_id"])  # convert ObjectId to string
+            user["_id"] = str(user["_id"])
         return user
     except Exception:
         return None
@@ -74,12 +74,12 @@ def user_login_required(f):
 #  EMAIL VERIFICATION TOKENS
 # ══════════════════════════════════════════════════════════════════════════════
 
-def generate_verification_token():
+def generate_verification_token() -> tuple[str, datetime]:
     """
     Generate a secure random token for email verification.
     Returns a tuple of (token, expiration_datetime).
     """
-    token = secrets.token_urlsafe(32)  # 43-char URL-safe string
+    token = secrets.token_urlsafe(32)
     expires_at = datetime.now(timezone.utc).replace(tzinfo=None) + timedelta(hours=24)
     return token, expires_at
 
@@ -92,12 +92,10 @@ def verify_token(token: str) -> dict | None:
     if not token:
         return None
 
-    # Find user with this token
     user = users_collection.find_one({"verification_token": token})
     if not user:
         return None
 
-    # Check if token has expired
     now_naive = datetime.now(timezone.utc).replace(tzinfo=None)
     if user.get("token_expires_at") and user["token_expires_at"] < now_naive:
         return None

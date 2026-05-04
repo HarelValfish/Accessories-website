@@ -5,11 +5,26 @@ User and order CRUD operations for MongoDB.
 Handles user registration, authentication, and order management.
 """
 
+import logging
 from datetime import datetime, timezone
+from typing import Optional
 from bson import ObjectId
 
 from database import users_collection, orders_collection
 from user_auth import generate_verification_token
+
+logger = logging.getLogger(__name__)
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+#  PRIVATE HELPERS
+# ══════════════════════════════════════════════════════════════════════════════
+
+def _serialize_order(order: dict) -> dict:
+    """Convert ObjectId fields in an order document to strings in-place."""
+    order["_id"]     = str(order["_id"])
+    order["user_id"] = str(order["user_id"])
+    return order
 
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -24,10 +39,10 @@ def create_user(email: str, password_hash: str) -> str:
     token, expires_at = generate_verification_token()
 
     document = {
-        "email": email.lower().strip(),  # normalize email
+        "email": email.lower().strip(),
         "password_hash": password_hash,
         "created_at": datetime.now(timezone.utc).replace(tzinfo=None),
-        "is_verified": False,            # require email verification
+        "is_verified": False,
         "verification_token": token,
         "token_expires_at": expires_at,
     }
@@ -46,7 +61,7 @@ def get_user_by_email(email: str) -> dict | None:
 
     user = users_collection.find_one({"email": email.lower().strip()})
     if user:
-        user["_id"] = str(user["_id"])  # convert ObjectId to string
+        user["_id"] = str(user["_id"])
     return user
 
 
@@ -89,7 +104,7 @@ def verify_user_email(token: str) -> bool:
     return result.modified_count > 0
 
 
-def get_all_users_with_stats():
+def get_all_users_with_stats() -> list[dict]:
     """
     Get all users with their order statistics for admin panel.
     Returns list of users with: email, created_at, order_count, total_spent, last_order_date.
@@ -99,11 +114,8 @@ def get_all_users_with_stats():
 
     for user in users:
         user_id = user["_id"]
-
-        # Get all orders for this user
         user_orders = list(orders_collection.find({"user_id": user_id}))
 
-        # Calculate stats
         order_count = len(user_orders)
         total_spent = sum(order.get("total", 0) for order in user_orders)
         last_order_date = max(
@@ -128,7 +140,7 @@ def get_all_users_with_stats():
 #  ORDER CRUD
 # ══════════════════════════════════════════════════════════════════════════════
 
-def create_order(user_id: str, cart_items: list, shipping_address: dict, order_number: str) -> str:
+def create_order(user_id: str, cart_items: list[dict], shipping_address: dict, order_number: str) -> str:
     """
     Create a new order from cart items.
     Cart items should be list of dicts with: item_id, name, price, quantity, image_url, selected_color.
@@ -138,9 +150,8 @@ def create_order(user_id: str, cart_items: list, shipping_address: dict, order_n
     if not user:
         raise ValueError("User not found")
 
-    # Calculate totals
     subtotal = sum(item["price"] * item["quantity"] for item in cart_items)
-    shipping = 5.99 if subtotal < 50 else 0  # free shipping over $50
+    shipping = 5.99 if subtotal < 50 else 0  # free shipping on orders $50+
     total = subtotal + shipping
 
     document = {
@@ -168,42 +179,34 @@ def get_order_by_id(order_id: str) -> dict | None:
     """
     try:
         order = orders_collection.find_one({"_id": ObjectId(order_id)})
-        if order:
-            order["_id"] = str(order["_id"])
-            order["user_id"] = str(order["user_id"])
-        return order
+        return _serialize_order(order) if order else None
     except Exception:
         return None
 
 
-def get_user_orders(user_id: str) -> list:
+def get_user_orders(user_id: str) -> list[dict]:
     """
     Get all orders for a specific user, sorted by date (newest first).
     Returns list of order documents.
     """
     try:
         orders = list(orders_collection.find({"user_id": ObjectId(user_id)}).sort("created_at", -1))
-        for order in orders:
-            order["_id"] = str(order["_id"])
-            order["user_id"] = str(order["user_id"])
-        return orders
+        return [_serialize_order(o) for o in orders]
     except Exception:
+        logger.error("get_user_orders: failed to fetch orders for user_id=%r", user_id, exc_info=True)
         return []
 
 
-def get_all_orders() -> list:
+def get_all_orders() -> list[dict]:
     """
     Get all orders across all users for admin view.
     Returns list sorted by date (newest first).
     """
     orders = list(orders_collection.find().sort("created_at", -1))
-    for order in orders:
-        order["_id"] = str(order["_id"])
-        order["user_id"] = str(order["user_id"])
-    return orders
+    return [_serialize_order(o) for o in orders]
 
 
-def update_order_status(order_id: str, status: str) -> bool:
+def update_order_status(order_id: str, status: str) -> dict | None:
     """Update order status and return the updated order dict, or None on failure."""
     try:
         result = orders_collection.find_one_and_update(
@@ -211,15 +214,14 @@ def update_order_status(order_id: str, status: str) -> bool:
             {"$set": {"status": status, "updated_at": datetime.now(timezone.utc).replace(tzinfo=None)}},
             return_document=True,
         )
-        if result:
-            result["_id"] = str(result["_id"])
-            result["user_id"] = str(result["user_id"])
-        return result
+        return _serialize_order(result) if result else None
     except Exception:
         return None
 
 
-def update_user(user_id: str, email: str, password_hash: str = None, is_verified: bool = None) -> bool:
+def update_user(user_id: str, email: str,
+                password_hash: Optional[str] = None,
+                is_verified: Optional[bool] = None) -> bool:
     updates = {"email": email.lower().strip(), "updated_at": datetime.now(timezone.utc).replace(tzinfo=None)}
     if password_hash is not None:
         updates["password_hash"] = password_hash

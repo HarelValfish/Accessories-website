@@ -12,21 +12,32 @@ Three blueprints:
 Blueprints are registered onto the Flask app in app.py.
 """
 
+import logging
+from datetime import datetime, timezone
+from typing import Optional
+from zoneinfo import ZoneInfo
 from flask import (
     Blueprint, render_template, request,
     redirect, url_for, session, jsonify
 )
 import json
 
+logger = logging.getLogger(__name__)
+
+_JERUSALEM = ZoneInfo("Asia/Jerusalem")
+_UTC = timezone.utc
+
+from app    import bcrypt
 from auth   import login_required, check_password
 from models import (
     get_all_items, get_item_by_id, get_all_categories,
     get_all_categories_with_ids, get_or_create_category,
-    create_item, update_item, delete_item, fetch_image, fetch_images, decrement_stock
+    create_item, update_item, delete_item, fetch_image, fetch_images, decrement_stock,
+    set_item_sale, clear_item_sale, get_sale_info
 )
 from user_auth import user_login_required, get_current_user
 from user_models import (
-    create_user, get_user_by_email, verify_user_email,
+    create_user, get_user_by_email, get_user_by_id, verify_user_email,
     get_user_orders, get_order_by_id, create_order,
     get_all_users_with_stats, get_all_orders,
     update_user, delete_user
@@ -42,6 +53,36 @@ from analytics import record_item_view, dashboard_payload
 
 
 # ══════════════════════════════════════════════════════════════════════════════
+#  SALE DATETIME HELPERS  (module-level so tests can import them directly)
+# ══════════════════════════════════════════════════════════════════════════════
+
+def _sale_dt_from_form(value: Optional[str]) -> Optional[datetime]:
+    """
+    Parse a datetime-local form field (Jerusalem local time) to a naive UTC datetime.
+    Returns None for empty or invalid input.
+    """
+    if not value:
+        return None
+    try:
+        local_dt = datetime.strptime(value.strip(), "%Y-%m-%dT%H:%M").replace(tzinfo=_JERUSALEM)
+        return local_dt.astimezone(_UTC).replace(tzinfo=None)
+    except (ValueError, AttributeError):
+        return None
+
+
+def _sale_dt_to_form(dt: Optional[datetime]) -> str:
+    """
+    Convert a naive UTC datetime to a Jerusalem datetime-local string for form display.
+    Returns "" if dt is None.
+    """
+    if not dt:
+        return ""
+    if dt.tzinfo is None:
+        dt = dt.replace(tzinfo=_UTC)
+    return dt.astimezone(_JERUSALEM).strftime("%Y-%m-%dT%H:%M")
+
+
+# ══════════════════════════════════════════════════════════════════════════════
 #  BLUEPRINT DEFINITIONS
 # ══════════════════════════════════════════════════════════════════════════════
 
@@ -53,17 +94,42 @@ user_bp   = Blueprint("user",   __name__)   # user accounts and shopping
 
 
 # ══════════════════════════════════════════════════════════════════════════════
+#  PRIVATE HELPERS
+# ══════════════════════════════════════════════════════════════════════════════
+
+def _parse_item_form() -> tuple[bool, list, list]:
+    """
+    Parse the colors / images fields that appear identically on both the
+    create-item and edit-item forms.  Returns (colors_enabled, colors, images).
+    """
+    colors_enabled = request.form.get("colors_enabled") == "1"
+    try:
+        colors = json.loads(request.form.get("colors_json", "[]"))
+    except (json.JSONDecodeError, ValueError):
+        colors = []
+    try:
+        images = [
+            u.strip()
+            for u in json.loads(request.form.get("images_json", "[]"))
+            if isinstance(u, str) and u.strip()
+        ]
+    except (json.JSONDecodeError, ValueError):
+        images = []
+    return colors_enabled, colors, images
+
+
+# ══════════════════════════════════════════════════════════════════════════════
 #  PUBLIC ROUTES
 # ══════════════════════════════════════════════════════════════════════════════
 
 @public_bp.route("/")
 def index():
     """Main storefront — shows all products with optional filter/search."""
-    category = request.args.get("category", "")  # e.g. ?category=Cables
-    search   = request.args.get("search",   "")  # e.g. ?search=usb
+    category = request.args.get("category", "")
+    search   = request.args.get("search",   "")
 
-    items      = get_all_items(category=category, search=search)  # fetch from DB
-    categories = get_all_categories()                             # for filter pills
+    items      = get_all_items(category=category, search=search)
+    categories = get_all_categories()
 
     return render_template(
         "index.html",
@@ -74,12 +140,17 @@ def index():
     )
 
 
+@public_bp.route("/about")
+def about():
+    return render_template("about.html")
+
+
 @public_bp.route("/item/<item_id>")
 def item_detail(item_id):
     """Single product detail page."""
-    item = get_item_by_id(item_id)  # fetch one item by ID
+    item = get_item_by_id(item_id)
     if not item:
-        return render_template("404.html"), 404  # show friendly 404 page
+        return render_template("404.html"), 404
     record_item_view(item_id, session.get("user_id"))
     return render_template("item_detail.html", item=item)
 
@@ -97,15 +168,14 @@ def admin_login():
     error = None
 
     if request.method == "POST":
-        entered = request.form.get("password", "")  # read submitted password
+        entered = request.form.get("password", "")
 
-        if check_password(entered):                        # validate in auth.py
-            from datetime import datetime
-            session["admin_logged_in"] = True              # mark session as authenticated
-            session["admin_last_seen"] = datetime.utcnow().isoformat()  # start the 5-min timer
-            return redirect(url_for("admin.dashboard"))    # go to admin dashboard
+        if check_password(entered):
+            session["admin_logged_in"] = True
+            session["admin_last_seen"] = datetime.now(timezone.utc).isoformat()
+            return redirect(url_for("admin.dashboard"))
 
-        error = "Incorrect password. Please try again."   # wrong password message
+        error = "Incorrect password. Please try again."
 
     return render_template("admin_login.html", error=error)
 
@@ -129,11 +199,11 @@ def dashboard():
     Admin dashboard — inventory table with all items, stats, and low-stock alerts.
     Protected by @login_required: redirects to login if not authenticated.
     """
-    items = get_all_items()  # fetch everything (no filters)
+    items = get_all_items()
 
     total_items = len(items)
-    total_stock = sum(item.get("stock", 0) for item in items)       # sum all stock values
-    low_stock   = [item for item in items if item.get("stock", 0) <= 5]  # flag low items
+    total_stock = sum(item.get("stock", 0) for item in items)
+    low_stock   = [item for item in items if item.get("stock", 0) <= 5]
 
     return render_template(
         "admin_dashboard.html",
@@ -152,15 +222,7 @@ def new_item():
     POST → read form data, create item in DB, redirect to dashboard
     """
     if request.method == "POST":
-        colors_enabled = request.form.get("colors_enabled") == "1"
-        try:
-            colors = json.loads(request.form.get("colors_json", "[]"))
-        except (json.JSONDecodeError, ValueError):
-            colors = []
-        try:
-            images = [u.strip() for u in json.loads(request.form.get("images_json", "[]")) if isinstance(u, str) and u.strip()]
-        except (json.JSONDecodeError, ValueError):
-            images = []
+        colors_enabled, colors, images = _parse_item_form()
 
         create_item(
             name           = request.form.get("name", "").strip(),
@@ -186,20 +248,12 @@ def edit_item(item_id):
     GET  → show edit form pre-filled with existing item data
     POST → update item in DB, redirect to dashboard
     """
-    item = get_item_by_id(item_id)  # load existing item
+    item = get_item_by_id(item_id)
     if not item:
         return "Item not found", 404
 
     if request.method == "POST":
-        colors_enabled = request.form.get("colors_enabled") == "1"
-        try:
-            colors = json.loads(request.form.get("colors_json", "[]"))
-        except (json.JSONDecodeError, ValueError):
-            colors = []
-        try:
-            images = [u.strip() for u in json.loads(request.form.get("images_json", "[]")) if isinstance(u, str) and u.strip()]
-        except (json.JSONDecodeError, ValueError):
-            images = []
+        colors_enabled, colors, images = _parse_item_form()
 
         update_item(
             item_id        = item_id,
@@ -240,8 +294,38 @@ def refresh_image(item_id):
 @login_required
 def delete_item_route(item_id):
     """Delete an item by ID and return to the dashboard."""
-    delete_item(item_id)                     # delegate to models.py
+    delete_item(item_id)
     return redirect(url_for("admin.dashboard"))
+
+
+@admin_bp.route("/admin/item/sale/<item_id>", methods=["GET", "POST"])
+@login_required
+def manage_sale(item_id):
+    item = get_item_by_id(item_id)
+    if not item:
+        return render_template("404.html"), 404
+
+    sale_info = get_sale_info(item)
+    item.update(sale_info)
+
+    if request.method == "POST":
+        action = request.form.get("action", "set")
+        if action == "clear":
+            clear_item_sale(item_id)
+        else:
+            sale_type  = request.form.get("sale_type", "percentage")
+            sale_value = float(request.form.get("sale_value") or 0)
+
+            if sale_value > 0:
+                set_item_sale(item_id, sale_type, sale_value,
+                              sale_start=_sale_dt_from_form(request.form.get("sale_start")),
+                              sale_end=_sale_dt_from_form(request.form.get("sale_end")))
+        return redirect(url_for("admin.dashboard"))
+
+    sale_start_str = _sale_dt_to_form(item.get("sale_start"))
+    sale_end_str   = _sale_dt_to_form(item.get("sale_end"))
+    return render_template("admin_sale_form.html", item=item,
+                           sale_start_str=sale_start_str, sale_end_str=sale_end_str)
 
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -316,12 +400,9 @@ def register():
         elif get_user_by_email(email):
             error = "An account with this email already exists."
         else:
-            # Create user with hashed password
-            from app import bcrypt
             password_hash = bcrypt.generate_password_hash(password).decode('utf-8')
-            user_id = create_user(email, password_hash)
-
-            # Get the user to retrieve the verification token
+            create_user(email, password_hash)
+            # Re-fetch to get the verification_token that create_user generated
             user = get_user_by_email(email)
             send_verification_email(email, user["verification_token"])
 
@@ -349,12 +430,10 @@ def login():
         elif not user.get("is_verified"):
             error = "Please verify your email address before logging in."
         else:
-            # Check password
-            from app import bcrypt
             if bcrypt.check_password_hash(user["password_hash"], password):
-                session["user_id"] = user["_id"]  # log user in
+                session["user_id"] = user["_id"]
                 next_url = request.args.get("next", "")
-                # Only allow safe relative redirects (no open redirect)
+                # Only allow safe relative redirects (prevents open-redirect via ?next=//evil.com)
                 if next_url and next_url.startswith("/") and not next_url.startswith("//"):
                     return redirect(next_url)
                 return redirect(url_for("public.index"))
@@ -393,7 +472,7 @@ def view_cart():
     """Show shopping cart."""
     cart = get_cart()
 
-    # Add stock info to each cart item
+    # Attach current stock so the template can warn when cart quantity exceeds available stock
     for cart_item in cart:
         item = get_item_by_id(cart_item["item_id"])
         if item:
@@ -445,7 +524,6 @@ def update_cart_route():
 
     result = update_cart_quantity(item_id, quantity, selected_color)
 
-    # Check if this is an AJAX request
     if request.headers.get('X-Requested-With') == 'XMLHttpRequest' or request.accept_mimetypes['application/json']:
         if result["success"]:
             totals = get_cart_total()
@@ -460,7 +538,6 @@ def update_cart_route():
                 "error": result.get("error", "Update failed")
             }), 400
     else:
-        # Regular form submission - redirect back to cart
         return redirect(url_for("user.view_cart"))
 
 
@@ -477,9 +554,10 @@ def checkout():
     totals = get_cart_total()
 
     if not cart:
-        return redirect(url_for("user.view_cart"))  # can't checkout with empty cart
+        return redirect(url_for("user.view_cart"))
 
-    # Validate stock before showing checkout or processing order
+    # Check stock on GET so the user sees problems before filling in address.
+    # The same check runs again on POST to catch concurrent depletions.
     stock_validation = validate_cart_stock()
     if not stock_validation["valid"]:
         error_message = "Some items in your cart are no longer available or have insufficient stock:<br>"
@@ -488,13 +566,11 @@ def checkout():
         return render_template("cart.html", cart=cart, totals=totals, error=error_message)
 
     if request.method == "POST":
-        # Double-check stock again before creating order
         stock_validation = validate_cart_stock()
         if not stock_validation["valid"]:
             error_message = "Some items are no longer available in the requested quantity. Please review your cart."
             return render_template("checkout.html", cart=cart, totals=totals, error=error_message)
 
-        # Get shipping address from form
         shipping_address = {
             "name": request.form.get("name", "").strip(),
             "address": request.form.get("address", "").strip(),
@@ -504,27 +580,22 @@ def checkout():
             "country": request.form.get("country", "USA").strip(),
         }
 
-        # Validate required fields
         if not all([shipping_address["name"], shipping_address["address"],
                     shipping_address["city"], shipping_address["state"], shipping_address["zip"]]):
             error = "All shipping address fields are required."
             return render_template("checkout.html", cart=cart, totals=totals, error=error)
 
-        # Create order
         order_number = generate_order_number()
         user_id = session["user_id"]
         order_id = create_order(user_id, cart, shipping_address, order_number)
 
-        # Deduct purchased quantities from inventory
         for cart_item in cart:
             decrement_stock(cart_item["item_id"], cart_item["quantity"])
 
-        # Send confirmation email
         user = get_current_user()
         order = get_order_by_id(order_id)
         send_order_confirmation(user["email"], order)
 
-        # Clear cart
         clear_cart()
 
         return redirect(url_for("user.order_confirmation", order_id=order_id))
@@ -540,7 +611,6 @@ def order_confirmation(order_id):
     if not order:
         return "Order not found", 404
 
-    # Verify this order belongs to the current user
     if order["user_id"] != session["user_id"]:
         return "Unauthorized", 403
 
@@ -555,7 +625,7 @@ def account():
     """User account dashboard with recent orders."""
     user = get_current_user()
     orders = get_user_orders(user["_id"])
-    return render_template("user_account.html", user=user, orders=orders[:5])  # show 5 most recent
+    return render_template("user_account.html", user=user, orders=orders[:5])
 
 
 @user_bp.route("/orders")
@@ -575,7 +645,6 @@ def order_detail(order_id):
     if not order:
         return "Order not found", 404
 
-    # Verify this order belongs to the current user
     if order["user_id"] != session["user_id"]:
         return "Unauthorized", 403
 
@@ -603,7 +672,6 @@ def admin_users():
 @login_required
 def admin_user_detail(user_id):
     """Admin view of single user with full order history."""
-    from user_models import get_user_by_id
     user = get_user_by_id(user_id)
     if not user:
         return "User not found", 404
@@ -628,7 +696,6 @@ def admin_add_user():
         elif get_user_by_email(email):
             error = "A user with this email already exists."
         else:
-            from app import bcrypt
             password_hash = bcrypt.generate_password_hash(password).decode("utf-8")
             user_id = create_user(email, password_hash)
             if is_verified:
@@ -641,7 +708,6 @@ def admin_add_user():
 @admin_bp.route("/admin/users/<user_id>/edit", methods=["GET", "POST"])
 @login_required
 def admin_edit_user(user_id):
-    from user_models import get_user_by_id
     user = get_user_by_id(user_id)
     if not user:
         return "User not found", 404
@@ -657,7 +723,6 @@ def admin_edit_user(user_id):
         else:
             password_hash = None
             if password:
-                from app import bcrypt
                 password_hash = bcrypt.generate_password_hash(password).decode("utf-8")
             update_user(user_id, email, password_hash=password_hash, is_verified=is_verified)
             return redirect(url_for("admin.admin_users"))
@@ -692,5 +757,8 @@ def admin_update_order_status(order_id):
             try:
                 send_order_status_update(order["user_email"], order)
             except Exception:
-                pass
+                logger.error(
+                    "admin_update_order_status: failed to send status email for order %s to %s",
+                    order_id, order["user_email"], exc_info=True,
+                )
     return redirect(url_for("admin.admin_orders"))

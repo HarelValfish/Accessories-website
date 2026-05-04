@@ -5,6 +5,7 @@ Shopping cart session management utilities.
 Cart is stored in Flask session for simplicity and performance.
 """
 
+from typing import Optional
 from flask import session
 from models import get_item_by_id
 
@@ -13,7 +14,7 @@ from models import get_item_by_id
 #  CART SESSION MANAGEMENT
 # ══════════════════════════════════════════════════════════════════════════════
 
-def get_cart() -> list:
+def get_cart() -> list[dict]:
     """
     Get the current cart from session.
     Returns list of cart items or empty list if cart doesn't exist.
@@ -21,32 +22,27 @@ def get_cart() -> list:
     return session.get("cart", [])
 
 
-def add_to_cart(item_id: str, quantity: int = 1, selected_color: str = None) -> dict:
+def add_to_cart(item_id: str, quantity: int = 1, selected_color: Optional[str] = None) -> dict:
     """
     Add an item to the cart or update quantity if it already exists.
     Returns dict with success status and optional error message.
     """
-    # Normalize empty string to None
     if selected_color == "":
         selected_color = None
 
-    # Fetch item details from database
     item = get_item_by_id(item_id)
     if not item:
         return {"success": False, "error": "Item not found"}
 
-    # Check stock availability
     available_stock = item.get("stock", 0)
     if available_stock <= 0:
         return {"success": False, "error": "Item is out of stock"}
 
-    # Initialize cart if it doesn't exist
     if "cart" not in session:
         session["cart"] = []
 
     cart = session["cart"]
 
-    # Check if item already in cart (same item_id and color)
     for cart_item in cart:
         cart_color = cart_item.get("selected_color")
         if cart_color == "":
@@ -62,11 +58,11 @@ def add_to_cart(item_id: str, quantity: int = 1, selected_color: str = None) -> 
             session.modified = True
             return {"success": True, "message": "Quantity updated"}
 
-    # Check if requested quantity exceeds stock for new item
     if quantity > available_stock:
         return {"success": False, "error": f"Only {available_stock} in stock"}
 
-    # Add new item to cart — use discounted price if sale is active
+    # Use the sale price if a sale is currently active, so the cart reflects
+    # the price the customer sees on the product page.
     effective_price = item.get("sale_price", item["price"]) if item.get("sale_active") else item["price"]
     cart_item = {
         "item_id": item_id,
@@ -81,12 +77,11 @@ def add_to_cart(item_id: str, quantity: int = 1, selected_color: str = None) -> 
     return {"success": True, "message": "Added to cart"}
 
 
-def remove_from_cart(item_id: str, selected_color: str = None) -> bool:
+def remove_from_cart(item_id: str, selected_color: Optional[str] = None) -> bool:
     """
     Remove an item from the cart.
     Returns True if item was removed, False if not found.
     """
-    # Normalize empty string to None
     if selected_color == "":
         selected_color = None
 
@@ -96,7 +91,6 @@ def remove_from_cart(item_id: str, selected_color: str = None) -> bool:
     cart = session["cart"]
     original_length = len(cart)
 
-    # Remove items matching item_id and color
     session["cart"] = [
         item for item in cart
         if not (item["item_id"] == item_id and
@@ -107,13 +101,12 @@ def remove_from_cart(item_id: str, selected_color: str = None) -> bool:
     return len(session["cart"]) < original_length
 
 
-def update_cart_quantity(item_id: str, quantity: int, selected_color: str = None) -> dict:
+def update_cart_quantity(item_id: str, quantity: int, selected_color: Optional[str] = None) -> dict:
     """
     Update the quantity of an item in the cart.
     If quantity is 0 or negative, removes the item.
     Returns dict with success status and optional error message.
     """
-    # Normalize empty string to None
     if selected_color == "":
         selected_color = None
 
@@ -124,7 +117,6 @@ def update_cart_quantity(item_id: str, quantity: int, selected_color: str = None
         remove_from_cart(item_id, selected_color)
         return {"success": True, "message": "Item removed"}
 
-    # Check stock availability
     item = get_item_by_id(item_id)
     if not item:
         return {"success": False, "error": "Item not found"}
@@ -134,8 +126,6 @@ def update_cart_quantity(item_id: str, quantity: int, selected_color: str = None
         return {"success": False, "error": f"Only {available_stock} in stock"}
 
     cart = session["cart"]
-
-    # Find and update the item
     for cart_item in cart:
         cart_color = cart_item.get("selected_color")
         if cart_color == "":
@@ -200,7 +190,7 @@ def validate_cart_stock() -> dict:
     }
 
 
-def clear_cart():
+def clear_cart() -> None:
     """
     Clear all items from the cart.
     """

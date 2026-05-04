@@ -10,6 +10,7 @@ Aggregates dashboard metrics from MongoDB:
   - Category revenue breakdown
 """
 
+import logging
 from datetime import datetime, timedelta, timezone
 from bson import ObjectId
 from collections import defaultdict
@@ -21,6 +22,8 @@ from database import (
     views_collection,
 )
 
+logger = logging.getLogger(__name__)
+
 
 def record_item_view(item_id: str, user_id: str | None = None) -> None:
     """Log a single product detail page view / interest click."""
@@ -31,10 +34,10 @@ def record_item_view(item_id: str, user_id: str | None = None) -> None:
             "viewed_at": datetime.now(timezone.utc).replace(tzinfo=None),
         })
     except Exception:
-        pass
+        logger.warning("record_item_view: failed to record view for item_id=%r", item_id, exc_info=True)
 
 
-def _item_cost_map() -> dict:
+def _item_cost_map() -> dict[str, float]:
     """item_id (str) → current unit cost."""
     return {
         str(it["_id"]): float(it.get("cost", 0) or 0)
@@ -42,7 +45,7 @@ def _item_cost_map() -> dict:
     }
 
 
-def _order_cogs(order: dict, cost_map: dict) -> float:
+def _order_cogs(order: dict, cost_map: dict[str, float]) -> float:
     """Total cost of goods sold for a single order."""
     return sum(
         cost_map.get(line.get("item_id"), 0) * int(line.get("quantity", 0))

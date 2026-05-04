@@ -13,7 +13,7 @@ def _mail() -> Mail:
     return current_app.extensions["mail"]
 
 
-def send_verification_email(email: str, token: str):
+def send_verification_email(email: str, token: str) -> None:
     verification_url = f"{request.url_root}verify-email/{token}"
 
     msg = Message(
@@ -37,7 +37,7 @@ def send_verification_email(email: str, token: str):
     _mail().send(msg)
 
 
-def send_order_status_update(email: str, order: dict):
+def send_order_status_update(email: str, order: dict) -> None:
     status = order.get("status", "updated")
     status_messages = {
         "confirmed": ("Order Confirmed", "Great news — your order has been confirmed and is being prepared."),
@@ -66,7 +66,7 @@ def send_order_status_update(email: str, order: dict):
     _mail().send(msg)
 
 
-def send_order_confirmation(email: str, order: dict):
+def send_order_confirmation(email: str, order: dict) -> None:
     items_html = "".join(
         f"<tr>"
         f"<td style='padding:6px 12px'>{escape(item['name'])}</td>"

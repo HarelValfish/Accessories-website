@@ -14,10 +14,12 @@ import re
 import requests
 from bson import ObjectId
 from datetime import datetime, timezone
+from typing import Optional
 from ddgs import DDGS
 
 from database import items_collection, categories_collection
 
+logger = __import__("logging").getLogger(__name__)
 
 UNSPLASH_ACCESS_KEY = os.environ.get("UNSPLASH_ACCESS_KEY", "")
 
@@ -67,7 +69,8 @@ def get_sale_info(item: dict) -> dict:
 
 
 def set_item_sale(item_id: str, sale_type: str, sale_value: float,
-                  sale_start: datetime = None, sale_end: datetime = None) -> bool:
+                  sale_start: Optional[datetime] = None,
+                  sale_end: Optional[datetime] = None) -> bool:
     try:
         result = items_collection.update_one(
             {"_id": ObjectId(item_id)},
@@ -117,7 +120,7 @@ def serialize_item(item: dict) -> dict:
 #  READ — ITEMS
 # ══════════════════════════════════════════════════════════════════════════════
 
-def get_all_items(category: str = "", search: str = "") -> list:
+def get_all_items(category: str = "", search: str = "") -> list[dict]:
     query = {}
     if category:
         query["category"] = category
@@ -138,12 +141,14 @@ def get_item_by_id(item_id: str) -> dict | None:
         return None
 
 
-def get_all_categories() -> list:
+def get_all_categories() -> list[str]:
     """Return sorted list of category name strings (for storefront filter pills)."""
     cats = list(categories_collection.find({}, {"name": 1}).sort("name", 1))
     if cats:
         return [c["name"] for c in cats]
-    # Fallback for existing deployments without categories collection
+    # Fallback: if the categories collection hasn't been populated yet (e.g. a
+    # deployment that pre-dates the categories collection), derive the list from
+    # the denormalized category field stored on each item.
     return sorted(items_collection.distinct("category"))
 
 
@@ -151,7 +156,7 @@ def get_all_categories() -> list:
 #  CATEGORIES
 # ══════════════════════════════════════════════════════════════════════════════
 
-def get_all_categories_with_ids() -> list:
+def get_all_categories_with_ids() -> list[dict]:
     """Return all categories as [{id, name}] sorted by name."""
     cats = list(categories_collection.find({}, {"name": 1}).sort("name", 1))
     return [{"id": str(c["_id"]), "name": c["name"]} for c in cats]
@@ -172,7 +177,7 @@ def get_or_create_category(name: str) -> dict:
     return {"id": str(result.inserted_id), "name": name}
 
 
-def _resolve_category(category_id: str) -> tuple:
+def _resolve_category(category_id: str) -> tuple[Optional[ObjectId], str]:
     """
     Look up a category by its string ID.
     Returns (ObjectId | None, name_str).
@@ -185,7 +190,7 @@ def _resolve_category(category_id: str) -> tuple:
         if cat:
             return oid, cat["name"]
     except Exception:
-        pass
+        logger.warning("_resolve_category: invalid or unknown category_id %r", category_id, exc_info=True)
     return None, ""
 
 
@@ -195,10 +200,13 @@ def _resolve_category(category_id: str) -> tuple:
 
 def create_item(name: str, description: str, category_id: str,
                 price: float, stock: int, image_url: str,
-                colors_enabled: bool = False, colors: list = None,
-                images: list = None, cost: float = 0.0,
+                colors_enabled: bool = False,
+                colors: Optional[list] = None,
+                images: Optional[list] = None,
+                cost: float = 0.0,
                 sale_type: str = "", sale_value: float = 0.0,
-                sale_start: datetime = None, sale_end: datetime = None) -> str:
+                sale_start: Optional[datetime] = None,
+                sale_end: Optional[datetime] = None) -> str:
     if not image_url:
         image_url = fetch_image(name, description)
 
@@ -233,10 +241,13 @@ def create_item(name: str, description: str, category_id: str,
 
 def update_item(item_id: str, name: str, description: str, category_id: str,
                 price: float, stock: int, image_url: str,
-                colors_enabled: bool = False, colors: list = None,
-                images: list = None, cost: float = 0.0,
+                colors_enabled: bool = False,
+                colors: Optional[list] = None,
+                images: Optional[list] = None,
+                cost: float = 0.0,
                 sale_type: str = "", sale_value: float = 0.0,
-                sale_start: datetime = None, sale_end: datetime = None) -> bool:
+                sale_start: Optional[datetime] = None,
+                sale_end: Optional[datetime] = None) -> bool:
     if not image_url:
         image_url = fetch_image(name, description)
 
@@ -354,7 +365,7 @@ def fetch_image(name: str, description: str) -> str:
 #  SEED DATA
 # ══════════════════════════════════════════════════════════════════════════════
 
-def seed_demo_data():
+def seed_demo_data() -> None:
     if items_collection.count_documents({}) > 0:
         return
 

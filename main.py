@@ -17,8 +17,8 @@ Keep this file minimal — all real logic lives in the other modules.
 from dotenv import load_dotenv
 load_dotenv()                       # load .env file before anything else reads os.environ
 
-from app    import create_app       # factory function that builds the Flask app
-from models import seed_demo_data   # seeds the DB with 8 demo items if empty
+from app    import create_app
+from models import seed_demo_data
 
 
 # ── Build the app ──────────────────────────────────────────────────────────────
@@ -27,5 +27,5 @@ app = create_app()
 
 # ── Entry point ────────────────────────────────────────────────────────────────
 if __name__ == "__main__":
-    seed_demo_data()                  # insert demo items on first run (safe to leave in)
-    app.run(debug=True, port=5001)    # start local dev server at http://localhost:5000
+    seed_demo_data()
+    app.run(debug=True, port=5001)

@@ -10,10 +10,10 @@ Handles:
 Imported and called by app.py via register_error_handlers(app).
 """
 
-from flask import render_template
+from flask import Flask, render_template
 
 
-def register_error_handlers(app):
+def register_error_handlers(app: Flask) -> None:
     """Attach error-handling views to the Flask app instance."""
 
     @app.errorhandler(404)

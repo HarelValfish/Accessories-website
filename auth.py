@@ -43,7 +43,7 @@ def login_required(f):
     """
     TIMEOUT = timedelta(minutes=5)
 
-    @wraps(f)  # preserve the original function's name and docstring
+    @wraps(f)
     def decorated_function(*args, **kwargs):
         if not session.get("admin_logged_in"):
             return redirect(url_for("auth.admin_login"))
@@ -75,10 +75,9 @@ def login_required(f):
 
 def check_password(entered: str) -> bool:
     """
-    Compare the password entered in the login form against the stored admin password.
-    Returns True if they match, False otherwise.
-
-    Note: For production, consider using werkzeug.security.check_password_hash
-    instead of plain string comparison.
+    Compare the submitted admin password against the value from ADMIN_PASSWORD env var.
+    Uses hmac.compare_digest to prevent timing-based enumeration attacks.
+    The password itself is stored as plain text in the env var (not hashed) by design
+    — the admin panel is a single-user tool behind a 5-minute inactivity timeout.
     """
     return hmac.compare_digest(entered, ADMIN_PASSWORD)
