@@ -251,7 +251,8 @@ static_root/
 
 # Security reports
 SECURITY_REPORT.md
+MobileDeploy.md
+SecurityReport*.md
 
-AWS_Deployment.md
-DEPLOYMENT.md
-UpdateChecklist.md
+/plans
+*.sh
