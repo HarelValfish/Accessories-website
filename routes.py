@@ -414,8 +414,13 @@ def register():
             error = "Passwords do not match."
         elif len(password) < 6:
             error = "Password must be at least 6 characters."
-        elif get_user_by_email(email):
-            error = "An account with this email already exists."
+        elif existing := get_user_by_email(email):
+            if existing.get("is_verified"):
+                error = "An account with this email already exists."
+            else:
+                # Account exists but unverified — resend the verification email
+                send_verification_email(email, existing["verification_token"])
+                return render_template("verification_sent.html", email=email)
         else:
             password_hash = bcrypt.generate_password_hash(password).decode('utf-8')
             create_user(email, password_hash)
