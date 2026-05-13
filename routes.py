@@ -419,14 +419,20 @@ def register():
                 error = "An account with this email already exists."
             else:
                 # Account exists but unverified — resend the verification email
-                send_verification_email(email, existing["verification_token"])
+                try:
+                    send_verification_email(email, existing["verification_token"])
+                except Exception:
+                    logger.error("register: failed to resend verification email to %s", email, exc_info=True)
                 return render_template("verification_sent.html", email=email)
         else:
             password_hash = bcrypt.generate_password_hash(password).decode('utf-8')
             create_user(email, password_hash)
             # Re-fetch to get the verification_token that create_user generated
             user = get_user_by_email(email)
-            send_verification_email(email, user["verification_token"])
+            try:
+                send_verification_email(email, user["verification_token"])
+            except Exception:
+                logger.error("register: failed to send verification email to %s", email, exc_info=True)
 
             return render_template("verification_sent.html", email=email)
 
@@ -616,7 +622,10 @@ def checkout():
 
         user = get_current_user()
         order = get_order_by_id(order_id)
-        send_order_confirmation(user["email"], order)
+        try:
+            send_order_confirmation(user["email"], order)
+        except Exception:
+            logger.error("checkout: failed to send order confirmation for order %s", order_id, exc_info=True)
 
         clear_cart()
 
