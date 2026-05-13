@@ -2305,3 +2305,70 @@ body.login-page {
   flex-direction: column;
   align-items: center;
 }
+
+/* ── MOBILE NAVIGATION ──────────────────────────────────────────────── */
+.nav-toggle {
+  display: none;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  gap: 5px;
+  width: 40px;
+  height: 40px;
+  background: none;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  cursor: pointer;
+  padding: 0;
+  flex-shrink: 0;
+}
+.nav-toggle span {
+  display: block;
+  width: 18px;
+  height: 2px;
+  background: var(--text);
+  border-radius: 2px;
+  transition: transform var(--transition), opacity var(--transition);
+}
+.nav-toggle.is-open span:nth-child(1) { transform: translateY(7px) rotate(45deg); }
+.nav-toggle.is-open span:nth-child(2) { opacity: 0; }
+.nav-toggle.is-open span:nth-child(3) { transform: translateY(-7px) rotate(-45deg); }
+
+@media (max-width: 768px) {
+  /* Hamburger visible, nav links become a dropdown */
+  .nav-toggle { display: flex; }
+  .nav-right {
+    display: none;
+    position: absolute;
+    top: 60px;
+    left: 0;
+    right: 0;
+    flex-direction: column;
+    gap: 0.25rem;
+    background: var(--bg-2);
+    border-bottom: 1px solid var(--border);
+    padding: 0.75rem 1rem;
+    box-shadow: 0 8px 24px rgba(0,0,0,0.4);
+    z-index: 99;
+  }
+  .nav-right.is-open { display: flex; }
+  .nav-container { padding: 0 1rem; }
+  .nav-link { padding: 0.7rem 0.75rem; }
+
+  /* Checkout address row: stack city / state / zip */
+  .checkout-form .form-row { grid-template-columns: 1fr; }
+
+  /* Admin inventory table: scroll horizontally instead of clipping */
+  .table-wrap { overflow-x: auto; }
+
+  /* Admin item form image picker: 2 cols instead of 3 */
+  .image-picker-grid { grid-template-columns: repeat(2, 1fr); }
+
+  /* Touch targets ≥ 44px (WCAG 2.5.5) */
+  .quantity-input,
+  .btn-primary,
+  .btn-secondary,
+  .btn-search,
+  .field-input,
+  .pill { min-height: 44px; }
+}

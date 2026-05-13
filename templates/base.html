@@ -19,7 +19,10 @@
       <span class="logo-icon">⬡</span>
       <span class="logo-text">TECH<strong>DEN</strong></span>
     </a>
-    <div class="nav-right">
+    <button class="nav-toggle" id="navToggle" aria-label="Toggle menu" aria-expanded="false">
+      <span></span><span></span><span></span>
+    </button>
+    <div class="nav-right" id="navRight">
       <a href="{{ url_for('public.index') }}" class="nav-link">Shop</a>
 
       {# Cart link with badge #}
@@ -125,6 +128,25 @@
     btn.appendChild(r);
     r.addEventListener('animationend', () => r.remove());
   });
+
+  // ── Mobile nav toggle ─────────────────────────────────────────────
+  (function() {
+    const toggle   = document.getElementById('navToggle');
+    const navRight = document.getElementById('navRight');
+    if (!toggle || !navRight) return;
+    toggle.addEventListener('click', () => {
+      const open = navRight.classList.toggle('is-open');
+      toggle.classList.toggle('is-open', open);
+      toggle.setAttribute('aria-expanded', open);
+    });
+    document.addEventListener('click', (e) => {
+      if (!toggle.contains(e.target) && !navRight.contains(e.target)) {
+        navRight.classList.remove('is-open');
+        toggle.classList.remove('is-open');
+        toggle.setAttribute('aria-expanded', 'false');
+      }
+    });
+  })();
 
   // ── Shimmer stops once image loads ────────────────────────────────
   document.querySelectorAll('.card-image').forEach(img => {
