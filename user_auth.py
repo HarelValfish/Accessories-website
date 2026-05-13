@@ -58,14 +58,16 @@ def user_login_required(f):
 
         # 30-minute inactivity timeout
         last_seen_str = session.get("user_last_seen")
-        if last_seen_str:
-            last_seen = datetime.fromisoformat(last_seen_str)
-            if last_seen.tzinfo is None:
-                last_seen = last_seen.replace(tzinfo=timezone.utc)
-            if datetime.now(timezone.utc) - last_seen > USER_TIMEOUT:
-                session.pop("user_id", None)
-                session.pop("user_last_seen", None)
-                return redirect(url_for("user.login", next=request.path, expired=1))
+        if not last_seen_str:
+            session.pop("user_id", None)
+            return redirect(url_for("user.login", next=request.path, expired=1))
+        last_seen = datetime.fromisoformat(last_seen_str)
+        if last_seen.tzinfo is None:
+            last_seen = last_seen.replace(tzinfo=timezone.utc)
+        if datetime.now(timezone.utc) - last_seen > USER_TIMEOUT:
+            session.pop("user_id", None)
+            session.pop("user_last_seen", None)
+            return redirect(url_for("user.login", next=request.path, expired=1))
         # Reset timer on every protected page visit
         session["user_last_seen"] = datetime.now(timezone.utc).isoformat()
         return f(*args, **kwargs)

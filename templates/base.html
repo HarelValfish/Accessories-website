@@ -38,7 +38,10 @@
       {# User authentication links #}
       {% if session.get('user_id') %}
         <a href="{{ url_for('user.account') }}" class="nav-link">Account</a>
-        <a href="{{ url_for('user.logout') }}" class="nav-link nav-logout">Logout</a>
+        <form method="POST" action="{{ url_for('user.logout') }}" style="display:inline;">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+          <button type="submit" class="nav-link nav-logout" style="background:none;border:none;padding:0;cursor:pointer;font:inherit;">Logout</button>
+        </form>
       {% else %}
         <a href="{{ url_for('user.login') }}" class="nav-link">Login</a>
         <a href="{{ url_for('user.register') }}" class="nav-link nav-admin">Register</a>
@@ -47,6 +50,10 @@
       {# Admin links (separate from user auth) #}
       {% if session.get('admin_logged_in') %}
         <a href="{{ url_for('admin.dashboard') }}" class="nav-link nav-admin-panel">Admin Panel</a>
+        <form method="POST" action="{{ url_for('auth.admin_logout') }}" style="display:inline;">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+          <button type="submit" class="nav-link nav-admin-panel" style="background:none;border:none;padding:0;cursor:pointer;font:inherit;">Admin Logout</button>
+        </form>
       {% else %}
         <a href="{{ url_for('auth.admin_login') }}" class="nav-link nav-admin-panel">Admin</a>
       {% endif %}

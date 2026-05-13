@@ -18,6 +18,6 @@ def generate_order_number() -> str:
     and the database index ensures uniqueness.
     """
     date_part = datetime.now(timezone.utc).strftime("%Y%m%d")  # e.g., 20260426
-    random_part = secrets.token_hex(2).upper()        # e.g., A3F9 (4 hex chars)
+    random_part = secrets.token_hex(4).upper()        # e.g., A3F9B2C1 (8 hex chars)
 
     return f"ORD-{date_part}-{random_part}"

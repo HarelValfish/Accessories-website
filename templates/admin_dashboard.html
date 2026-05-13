@@ -106,7 +106,7 @@
               </form>
               <form method="POST" action="{{ url_for('admin.delete_item_route', item_id=item['_id']) }}"
                     style="display:inline;"
-                    onsubmit="return confirm('Delete {{ item['name'] }}?')">
+                    onsubmit="return confirm('Delete ' + {{ item['name'] | tojson }} + '?')">
                 <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
                 <button type="submit" class="btn-delete">Delete</button>
               </form>

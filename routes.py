@@ -16,9 +16,10 @@ import logging
 from datetime import datetime, timezone
 from typing import Optional
 from zoneinfo import ZoneInfo
+import re
 from flask import (
     Blueprint, render_template, request,
-    redirect, url_for, session, jsonify
+    redirect, url_for, session, jsonify, flash
 )
 import json
 
@@ -27,7 +28,7 @@ logger = logging.getLogger(__name__)
 _JERUSALEM = ZoneInfo("Asia/Jerusalem")
 _UTC = timezone.utc
 
-from app    import bcrypt
+from app    import bcrypt, limiter
 from auth   import login_required, check_password
 from models import (
     get_all_items, get_item_by_id, get_all_categories,
@@ -161,6 +162,7 @@ def item_detail(item_id):
 # ══════════════════════════════════════════════════════════════════════════════
 
 @auth_bp.route("/admin/login", methods=["GET", "POST"])
+@limiter.limit("5 per minute")
 def admin_login():
     """
     GET  → show the login form
@@ -174,14 +176,16 @@ def admin_login():
         if check_password(entered):
             session["admin_logged_in"] = True
             session["admin_last_seen"] = datetime.now(timezone.utc).isoformat()
+            logger.info("Admin login SUCCESS from %s", request.remote_addr)
             return redirect(url_for("admin.dashboard"))
 
+        logger.warning("Admin login FAILURE from %s", request.remote_addr)
         error = "Incorrect password. Please try again."
 
     return render_template("admin_login.html", error=error)
 
 
-@auth_bp.route("/admin/logout")
+@auth_bp.route("/admin/logout", methods=["POST"])
 def admin_logout():
     """Clear the admin session and return to the storefront."""
     session.pop("admin_logged_in", None)
@@ -395,6 +399,7 @@ def api_create_category():
 # ══════════════════════════════════════════════════════════════════════════════
 
 @user_bp.route("/register", methods=["GET", "POST"])
+@limiter.limit("5 per minute")
 def register():
     """
     GET  → show registration form
@@ -440,6 +445,7 @@ def register():
 
 
 @user_bp.route("/login", methods=["GET", "POST"])
+@limiter.limit("10 per minute")
 def login():
     """
     GET  → show login form
@@ -454,27 +460,32 @@ def login():
         user = get_user_by_email(email)
 
         if not user:
+            logger.warning("User login FAILURE email=%s ip=%s (not found)", email, request.remote_addr)
             error = "Invalid email or password."
         elif not user.get("is_verified"):
             error = "Please verify your email address before logging in."
         else:
             if bcrypt.check_password_hash(user["password_hash"], password):
                 session["user_id"] = user["_id"]
+                session["user_last_seen"] = datetime.now(timezone.utc).isoformat()
+                logger.info("User login SUCCESS email=%s ip=%s", email, request.remote_addr)
                 next_url = request.args.get("next", "")
                 # Only allow safe relative redirects (prevents open-redirect via ?next=//evil.com)
                 if next_url and next_url.startswith("/") and not next_url.startswith("//"):
                     return redirect(next_url)
                 return redirect(url_for("public.index"))
             else:
+                logger.warning("User login FAILURE email=%s ip=%s (wrong password)", email, request.remote_addr)
                 error = "Invalid email or password."
 
     return render_template("user_login.html", error=error)
 
 
-@user_bp.route("/logout")
+@user_bp.route("/logout", methods=["POST"])
 def logout():
     """Clear user session and redirect to home."""
     session.pop("user_id", None)
+    session.pop("user_last_seen", None)
     session.pop("cart", None)
     return redirect(url_for("public.index"))
 
@@ -666,6 +677,8 @@ def account():
                 unsubscribe_phone(arn)
                 clear_user_phone(user["_id"])
         elif phone:
+            if not re.match(r"^\+[1-9]\d{7,14}$", phone):
+                return redirect(url_for("user.account"))
             sub_arn = subscribe_phone(phone)
             if sub_arn:
                 update_user_phone(user["_id"], phone, sub_arn)

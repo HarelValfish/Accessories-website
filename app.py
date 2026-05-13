@@ -62,12 +62,26 @@ def create_app() -> Flask:
     mail.init_app(app)     # must come after MAIL_* config is set
     limiter.init_app(app)  # rate limiting
 
+    # ── Session cookie security ────────────────────────────────────────────────
+    app.config["SESSION_COOKIE_HTTPONLY"] = True
+    app.config["SESSION_COOKIE_SAMESITE"] = "Lax"
+    # Set SESSION_COOKIE_SECURE=true in production (.env) once HTTPS is configured
+    app.config["SESSION_COOKIE_SECURE"] = os.environ.get("SESSION_COOKIE_SECURE", "false").lower() == "true"
+
     # ── Security headers ───────────────────────────────────────────────────────
     @app.after_request
     def set_security_headers(response):
         response.headers["X-Frame-Options"] = "SAMEORIGIN"
         response.headers["X-Content-Type-Options"] = "nosniff"
         response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
+        response.headers["Content-Security-Policy"] = (
+            "default-src 'self'; "
+            "script-src 'self' 'unsafe-inline'; "
+            "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; "
+            "font-src 'self' https://fonts.gstatic.com; "
+            "img-src 'self' data: https:; "
+            "connect-src 'self';"
+        )
         if request.is_secure:
             response.headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains"
         return response
@@ -83,49 +97,51 @@ def create_app() -> Flask:
     app.register_blueprint(user_bp)    # user: /register, /login, /cart, /checkout, /account
 
     # ── API documentation (Swagger UI at /api/docs) ────────────────────────────
-    Swagger(app, config={
-        "headers": [],
-        "specs": [{
-            "endpoint": "apispec",
-            "route": "/api/spec.json",
-            "rule_filter": lambda rule: True,
-            "model_filter": lambda tag: True,
-        }],
-        "static_url_path": "/flasgger_static",
-        "swagger_ui": True,
-        "specs_route": "/api/docs",
-    }, template={
-        "swagger": "2.0",
-        "info": {
-            "title": "TechDen API",
-            "description": (
-                "REST and HTML API for the TechDen computer accessories store.\n\n"
-                "**Authentication:**\n"
-                "- Admin routes require an active admin session (POST `/admin/login`).\n"
-                "- User routes that require login redirect to `/login` if unauthenticated.\n"
-                "- JSON endpoints expecting a session will return `302` without one.\n\n"
-                "**Rate limits:** `/admin/login` 5/min · `/login` 10/min (per IP)."
-            ),
-            "version": "1.0",
-        },
-        "basePath": "/",
-        "schemes": ["http", "https"],
-        "tags": [
-            {"name": "Storefront",          "description": "Public product pages"},
-            {"name": "Admin Auth",          "description": "Admin login / logout"},
-            {"name": "Admin – Items",       "description": "Product CRUD (admin)"},
-            {"name": "Admin – Sales",       "description": "Sale management (admin)"},
-            {"name": "Admin – Analytics",   "description": "Analytics dashboard (admin)"},
-            {"name": "Admin – Users",       "description": "User management (admin)"},
-            {"name": "Admin – Orders",      "description": "Order management (admin)"},
-            {"name": "Images API",          "description": "Image auto-fetch JSON endpoints"},
-            {"name": "Categories API",      "description": "Category JSON endpoints"},
-            {"name": "User Auth",           "description": "User registration and login"},
-            {"name": "Cart",                "description": "Shopping cart"},
-            {"name": "Checkout",            "description": "Order placement"},
-            {"name": "Account",             "description": "User account and order history"},
-        ],
-    })
+    # Disabled by default — set ENABLE_SWAGGER=true in .env to turn on (dev only)
+    if os.environ.get("ENABLE_SWAGGER", "false").lower() == "true":
+        Swagger(app, config={
+            "headers": [],
+            "specs": [{
+                "endpoint": "apispec",
+                "route": "/api/spec.json",
+                "rule_filter": lambda rule: True,
+                "model_filter": lambda tag: True,
+            }],
+            "static_url_path": "/flasgger_static",
+            "swagger_ui": True,
+            "specs_route": "/api/docs",
+        }, template={
+            "swagger": "2.0",
+            "info": {
+                "title": "TechDen API",
+                "description": (
+                    "REST and HTML API for the TechDen computer accessories store.\n\n"
+                    "**Authentication:**\n"
+                    "- Admin routes require an active admin session (POST `/admin/login`).\n"
+                    "- User routes that require login redirect to `/login` if unauthenticated.\n"
+                    "- JSON endpoints expecting a session will return `302` without one.\n\n"
+                    "**Rate limits:** `/admin/login` 5/min · `/login` 10/min (per IP)."
+                ),
+                "version": "1.0",
+            },
+            "basePath": "/",
+            "schemes": ["http", "https"],
+            "tags": [
+                {"name": "Storefront",          "description": "Public product pages"},
+                {"name": "Admin Auth",          "description": "Admin login / logout"},
+                {"name": "Admin – Items",       "description": "Product CRUD (admin)"},
+                {"name": "Admin – Sales",       "description": "Sale management (admin)"},
+                {"name": "Admin – Analytics",   "description": "Analytics dashboard (admin)"},
+                {"name": "Admin – Users",       "description": "User management (admin)"},
+                {"name": "Admin – Orders",      "description": "Order management (admin)"},
+                {"name": "Images API",          "description": "Image auto-fetch JSON endpoints"},
+                {"name": "Categories API",      "description": "Category JSON endpoints"},
+                {"name": "User Auth",           "description": "User registration and login"},
+                {"name": "Cart",                "description": "Shopping cart"},
+                {"name": "Checkout",            "description": "Order placement"},
+                {"name": "Account",             "description": "User account and order history"},
+            ],
+        })
 
     # ── Register error handlers ────────────────────────────────────────────────
     register_error_handlers(app)       # 404 and 500 pages from errors.py

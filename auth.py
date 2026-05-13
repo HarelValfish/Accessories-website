@@ -16,9 +16,10 @@ from functools import wraps
 from flask import session, redirect, url_for
 
 # ── Admin password — read from environment variable ────────────────────────────
-# Set ADMIN_PASSWORD in your .env file to change it.
-# Default is "admin1234" for local development only — change before going live.
-ADMIN_PASSWORD = os.environ.get("ADMIN_PASSWORD", "admin1234")
+# Set ADMIN_PASSWORD in your .env file. No default — startup fails if unset.
+ADMIN_PASSWORD = os.environ.get("ADMIN_PASSWORD")
+if not ADMIN_PASSWORD:
+    raise RuntimeError("ADMIN_PASSWORD environment variable must be set")
 
 
 # ══════════════════════════════════════════════════════════════════════════════

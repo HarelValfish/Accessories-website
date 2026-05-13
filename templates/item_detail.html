@@ -97,7 +97,7 @@
                   data-image="{{ color.get('image_url', '') }}"
                   style="background:{{ color['hex'] }}"
                   title="{{ color['name'] }}"
-                  onclick="selectColor(this, '{{ color['name'] }}')">
+                  onclick="selectColor(this, {{ color['name'] | tojson }})">
             <span class="swatch-check">✓</span>
           </button>
           {% endfor %}
