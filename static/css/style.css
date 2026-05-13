@@ -25,7 +25,7 @@
 
 /* ── RESET ──────────────────────────────────────────────────────────── */
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-html { scroll-behavior: smooth; }
+html { scroll-behavior: smooth; overflow-x: hidden; }
 body {
   background: var(--bg);
   color: var(--text);
@@ -37,6 +37,8 @@ body {
   flex-direction: column;
   position: relative;
   overflow-x: hidden;
+  word-break: break-word;
+  overflow-wrap: break-word;
 }
 
 /* ── Parallax background hex logo ───────────────────────────────────── */
@@ -77,6 +79,7 @@ img { max-width: 100%; display: block; }
   display: flex;
   align-items: center;
   justify-content: space-between;
+  position: relative;
 }
 .logo {
   display: flex;
@@ -2334,12 +2337,12 @@ body.login-page {
 .nav-toggle.is-open span:nth-child(2) { opacity: 0; }
 .nav-toggle.is-open span:nth-child(3) { transform: translateY(-7px) rotate(-45deg); }
 
-@media (max-width: 768px) {
+@media (max-width: 900px) {
   /* Hamburger visible, nav links become a dropdown */
   .nav-toggle { display: flex; }
   .nav-right {
     display: none;
-    position: absolute;
+    position: fixed;
     top: 60px;
     left: 0;
     right: 0;
@@ -2349,7 +2352,7 @@ body.login-page {
     border-bottom: 1px solid var(--border);
     padding: 0.75rem 1rem;
     box-shadow: 0 8px 24px rgba(0,0,0,0.4);
-    z-index: 99;
+    z-index: 200;
   }
   .nav-right.is-open { display: flex; }
   .nav-container { padding: 0 1rem; }
