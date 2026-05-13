@@ -40,7 +40,7 @@ from user_models import (
     create_user, get_user_by_email, get_user_by_id, verify_user_email,
     get_user_orders, get_order_by_id, create_order,
     get_all_users_with_stats, get_all_orders,
-    update_user, delete_user
+    update_user, delete_user, update_user_phone, clear_user_phone
 )
 from cart_helpers import (
     add_to_cart as cart_add, remove_from_cart,
@@ -48,6 +48,7 @@ from cart_helpers import (
     validate_cart_stock
 )
 from email_service import send_verification_email, send_order_confirmation
+from sns_service import notify_price_change, notify_sale, subscribe_phone, unsubscribe_phone
 from order_generator import generate_order_number
 from analytics import record_item_view, dashboard_payload
 
@@ -254,13 +255,15 @@ def edit_item(item_id):
 
     if request.method == "POST":
         colors_enabled, colors, images = _parse_item_form()
+        old_price = float(item.get("price", 0))
+        new_price = float(request.form.get("price", 0))
 
         update_item(
             item_id        = item_id,
             name           = request.form.get("name", "").strip(),
             description    = request.form.get("description", "").strip(),
             category_id    = request.form.get("category_id", "").strip(),
-            price          = float(request.form.get("price", 0)),
+            price          = new_price,
             stock          = int(request.form.get("stock", 0)),
             image_url      = request.form.get("image_url", "").strip(),
             colors_enabled = colors_enabled,
@@ -268,6 +271,10 @@ def edit_item(item_id):
             images         = images,
             cost           = float(request.form.get("cost", 0) or 0),
         )
+
+        if abs(new_price - old_price) > 0.001:
+            notify_price_change(item["name"], old_price, new_price)
+
         return redirect(url_for("admin.dashboard"))
 
     return render_template("admin_item_form.html", item=item, action="Update")
@@ -320,6 +327,16 @@ def manage_sale(item_id):
                 set_item_sale(item_id, sale_type, sale_value,
                               sale_start=_sale_dt_from_form(request.form.get("sale_start")),
                               sale_end=_sale_dt_from_form(request.form.get("sale_end")))
+
+                updated = get_item_by_id(item_id)
+                sale_info = get_sale_info(updated)
+                if sale_info["active"]:
+                    notify_sale(
+                        item["name"],
+                        sale_info["original_price"],
+                        sale_info["sale_price"],
+                        sale_info["pct_off"],
+                    )
         return redirect(url_for("admin.dashboard"))
 
     sale_start_str = _sale_dt_to_form(item.get("sale_start"))
@@ -619,11 +636,28 @@ def order_confirmation(order_id):
 
 # ── User Account Routes ────────────────────────────────────────────────────────
 
-@user_bp.route("/account")
+@user_bp.route("/account", methods=["GET", "POST"])
 @user_login_required
 def account():
-    """User account dashboard with recent orders."""
+    """User account dashboard with recent orders. POST handles phone subscription."""
     user = get_current_user()
+
+    if request.method == "POST":
+        phone = request.form.get("phone", "").strip()
+        action = request.form.get("action", "subscribe")
+
+        if action == "unsubscribe":
+            arn = user.get("sns_subscription_arn", "")
+            if arn:
+                unsubscribe_phone(arn)
+                clear_user_phone(user["_id"])
+        elif phone:
+            sub_arn = subscribe_phone(phone)
+            if sub_arn:
+                update_user_phone(user["_id"], phone, sub_arn)
+
+        return redirect(url_for("user.account"))
+
     orders = get_user_orders(user["_id"])
     return render_template("user_account.html", user=user, orders=orders[:5])
 

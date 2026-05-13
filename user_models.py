@@ -5,6 +5,8 @@ User and order CRUD operations for MongoDB.
 Handles user registration, authentication, and order management.
 """
 
+from __future__ import annotations
+
 import logging
 from datetime import datetime, timezone
 from typing import Optional
@@ -241,6 +243,30 @@ def delete_user(user_id: str) -> bool:
     try:
         result = users_collection.delete_one({"_id": ObjectId(user_id)})
         return result.deleted_count > 0
+    except Exception:
+        return False
+
+
+def update_user_phone(user_id: str, phone: str, subscription_arn: str) -> bool:
+    """Store a user's phone number and SNS subscription ARN."""
+    try:
+        result = users_collection.update_one(
+            {"_id": ObjectId(user_id)},
+            {"$set": {"phone": phone, "sns_subscription_arn": subscription_arn}},
+        )
+        return result.modified_count > 0
+    except Exception:
+        return False
+
+
+def clear_user_phone(user_id: str) -> bool:
+    """Remove a user's phone number and SNS subscription ARN."""
+    try:
+        result = users_collection.update_one(
+            {"_id": ObjectId(user_id)},
+            {"$unset": {"phone": "", "sns_subscription_arn": ""}},
+        )
+        return result.modified_count > 0
     except Exception:
         return False
 

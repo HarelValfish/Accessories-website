@@ -10,6 +10,8 @@ Aggregates dashboard metrics from MongoDB:
   - Category revenue breakdown
 """
 
+from __future__ import annotations
+
 import logging
 from datetime import datetime, timedelta, timezone
 from bson import ObjectId

@@ -9,6 +9,8 @@ Contains all data-layer logic:
   - ObjectId serialization helper
 """
 
+from __future__ import annotations
+
 import os
 import re
 import requests

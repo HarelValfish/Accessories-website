@@ -5,6 +5,8 @@ User authentication decorators and helpers.
 Separate from admin authentication to maintain clear separation of concerns.
 """
 
+from __future__ import annotations
+
 import secrets
 from datetime import datetime, timedelta, timezone
 from functools import wraps
