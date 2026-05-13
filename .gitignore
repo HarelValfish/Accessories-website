@@ -251,3 +251,7 @@ static_root/
 
 # Security reports
 SECURITY_REPORT.md
+
+AWS_Deployment.md
+DEPLOYMENT.md
+UpdateChecklist.md
